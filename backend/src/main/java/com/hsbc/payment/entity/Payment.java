@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @Data
 @TableName("payments")
 public class Payment {
-    @TableId(type = IdType.ASSIGN_UUID)
+    @TableId(type = IdType.INPUT)
     private String id;
 
     private String idempotencyKey;

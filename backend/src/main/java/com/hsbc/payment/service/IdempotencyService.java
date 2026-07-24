@@ -43,4 +43,13 @@ public class IdempotencyService {
         }
         return record.getPaymentId();
     }
+
+    /**
+     * Look up an idempotency key and return the associated payment ID.
+     * Returns null if the key doesn't exist (no exception thrown).
+     */
+    public String findPaymentIdByKey(String key) {
+        IdempotencyRecord record = idempotencyMapper.selectById(key);
+        return record != null ? record.getPaymentId() : null;
+    }
 }
