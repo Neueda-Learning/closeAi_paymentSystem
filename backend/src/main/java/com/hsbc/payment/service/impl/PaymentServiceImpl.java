@@ -39,20 +39,17 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest request, String idempotencyKey) {
-        // 1. Generate payment ID upfront
-        String paymentId = UUID.randomUUID().toString();
-
-        // 2. Try to save idempotency record — fail fast if duplicate
-        boolean isNew = idempotencyService.checkAndSave(idempotencyKey, paymentId);
-        if (!isNew) {
-            String existingId = idempotencyService.getExistingPaymentId(idempotencyKey);
-            return getPayment(existingId);
+        // 1. Check if idempotency key already exists (SELECT only, fast path)
+        String existingPaymentId = idempotencyService.findPaymentIdByKey(idempotencyKey);
+        if (existingPaymentId != null) {
+            return getPayment(existingPaymentId);
         }
 
-        // 3. Business validation
+        // 2. Business validation
         validationService.validate(request);
 
-        // 4. Create and insert payment
+        // 3. Create and insert payment first
+        String paymentId = UUID.randomUUID().toString();
         Payment payment = new Payment();
         payment.setId(paymentId);
         payment.setIdempotencyKey(idempotencyKey);
@@ -63,6 +60,14 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setDescription(request.getDescription());
         payment.setStatus(PaymentStatus.CREATED.name());
         paymentMapper.insert(payment);
+
+        // 4. Save idempotency record (payment exists now, FK is satisfied)
+        //    If duplicate key (concurrent race), throw — transaction rolls back,
+        //    GlobalExceptionHandler returns DUPLICATE_PAYMENT error
+        if (!idempotencyService.checkAndSave(idempotencyKey, paymentId)) {
+            throw new BusinessException(ErrorCode.DUPLICATE_PAYMENT,
+                    "Duplicate idempotency key: " + idempotencyKey);
+        }
 
         // 5. Record initial status history
         StatusHistory history = new StatusHistory();

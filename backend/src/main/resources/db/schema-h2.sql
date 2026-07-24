@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS payments (
     status              VARCHAR(20)  NOT NULL DEFAULT 'CREATED',
     error_code          VARCHAR(50),
     created_at          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    updated_at          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE IF NOT EXISTS status_history (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -21,10 +21,10 @@ CREATE TABLE IF NOT EXISTS status_history (
     reason      TEXT,
     error_code  VARCHAR(50),
     CONSTRAINT fk_history_payment FOREIGN KEY (payment_id) REFERENCES payments(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+);
 
 CREATE TABLE IF NOT EXISTS idempotency_keys (
     key_record  VARCHAR(64) PRIMARY KEY,
     payment_id  VARCHAR(36) NOT NULL,
     created_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+);
