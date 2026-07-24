@@ -24,11 +24,14 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class PaymentServiceImpl implements PaymentService {
+
+    private static final int MAX_LIMIT = 100;
 
     private final PaymentMapper paymentMapper;
     private final StatusHistoryMapper statusHistoryMapper;
@@ -45,8 +48,8 @@ public class PaymentServiceImpl implements PaymentService {
             return getPayment(existingPaymentId);
         }
 
-        // 2. Business validation
-        validationService.validate(request);
+        // 2. Basic validation on create (fast-fail: source != dest only)
+        validationService.validateOnCreate(request);
 
         // 3. Create and insert payment first
         String paymentId = UUID.randomUUID().toString();
@@ -61,9 +64,7 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setStatus(PaymentStatus.CREATED.name());
         paymentMapper.insert(payment);
 
-        // 4. Save idempotency record (payment exists now, FK is satisfied)
-        //    If duplicate key (concurrent race), throw — transaction rolls back,
-        //    GlobalExceptionHandler returns DUPLICATE_PAYMENT error
+        // 4. Save idempotency record (payment exists now)
         if (!idempotencyService.checkAndSave(idempotencyKey, paymentId)) {
             throw new BusinessException(ErrorCode.DUPLICATE_PAYMENT,
                     "Duplicate idempotency key: " + idempotencyKey);
@@ -88,6 +89,13 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
+    public List<StatusHistoryResponse> getStatusHistoryOnly(String paymentId) {
+        // Verify payment exists
+        findPaymentById(paymentId);
+        return getStatusHistory(paymentId);
+    }
+
+    @Override
     public Page<PaymentResponse> listPayments(PageRequest pageRequest) {
         LambdaQueryWrapper<Payment> wrapper = new LambdaQueryWrapper<>();
 
@@ -98,15 +106,17 @@ public class PaymentServiceImpl implements PaymentService {
             wrapper.eq(Payment::getCurrency, pageRequest.getCurrency().toUpperCase());
         }
         if (StringUtils.hasText(pageRequest.getKeyword())) {
+            String escaped = escapeLike(pageRequest.getKeyword());
             wrapper.and(w -> w
-                .like(Payment::getId, pageRequest.getKeyword())
+                .like(Payment::getId, escaped)
                 .or()
-                .like(Payment::getDescription, pageRequest.getKeyword())
+                .like(Payment::getDescription, escaped)
             );
         }
         wrapper.orderByDesc(Payment::getCreatedAt);
 
-        Page<Payment> page = new Page<>(pageRequest.getPage(), pageRequest.getLimit());
+        int limit = Math.min(pageRequest.getLimit(), MAX_LIMIT);
+        Page<Payment> page = new Page<>(pageRequest.getPage(), limit);
         Page<Payment> resultPage = paymentMapper.selectPage(page, wrapper);
 
         Page<PaymentResponse> responsePage = new Page<>(
@@ -125,6 +135,8 @@ public class PaymentServiceImpl implements PaymentService {
         return response;
     }
 
+    // --- State transition methods ---
+
     @Override
     @Transactional
     public PaymentResponse processValidate(String paymentId) {
@@ -137,9 +149,20 @@ public class PaymentServiceImpl implements PaymentService {
                     "Cannot transition from " + fromStatus + " to " + toStatus);
         }
 
+        // Full business validation — if it fails, transition to FAILED (not throw)
+        try {
+            validationService.validateOnTransition(payment);
+        } catch (BusinessException ex) {
+            updatePaymentStatus(payment, PaymentStatus.FAILED.name(), ex.getErrorCode().name());
+            recordStatusHistory(paymentId, fromStatus.name(), PaymentStatus.FAILED.name(),
+                    "Validation failed: " + ex.getMessage(), ex.getErrorCode().name());
+            return getPayment(paymentId);
+        }
+
+        // ★ AI risk assessment hook (Phase 4: insert riskAssessmentService.assess(payment) here)
+
         updatePaymentStatus(payment, toStatus.name(), null);
         recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(), null, null);
-
         return getPayment(paymentId);
     }
 
@@ -157,6 +180,13 @@ public class PaymentServiceImpl implements PaymentService {
 
         updatePaymentStatus(payment, toStatus.name(), null);
         recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(), null, null);
+
+        // Simulated payment gateway: 20% chance of network failure
+        if (ThreadLocalRandom.current().nextInt(100) < 20) {
+            updatePaymentStatus(payment, PaymentStatus.FAILED.name(), ErrorCode.NETWORK_ERROR.name());
+            recordStatusHistory(paymentId, toStatus.name(), PaymentStatus.FAILED.name(),
+                    "Gateway communication failed (simulated)", ErrorCode.NETWORK_ERROR.name());
+        }
 
         return getPayment(paymentId);
     }
@@ -200,6 +230,16 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentResponse processRetry(String paymentId, String idempotencyKey) {
+        // Idempotency check FIRST — if already retried with this key, return current state
+        String existingForRetry = idempotencyService.findPaymentIdByKey(idempotencyKey);
+        if (existingForRetry != null) {
+            if (existingForRetry.equals(paymentId)) {
+                return getPayment(paymentId);  // Same payment retry → return current state
+            }
+            throw new BusinessException(ErrorCode.DUPLICATE_PAYMENT,
+                    "Idempotency key already used for another payment: " + idempotencyKey);
+        }
+
         Payment payment = findPaymentById(paymentId);
         PaymentStatus fromStatus = PaymentStatus.fromString(payment.getStatus());
         PaymentStatus toStatus = PaymentStatus.VALIDATED;
@@ -209,12 +249,8 @@ public class PaymentServiceImpl implements PaymentService {
                     "Cannot retry from status " + fromStatus);
         }
 
-        // Check idempotency for retry
-        boolean isNew = idempotencyService.checkAndSave(idempotencyKey, paymentId);
-        if (!isNew) {
-            throw new BusinessException(ErrorCode.DUPLICATE_PAYMENT,
-                    "Retry idempotency key already used: " + idempotencyKey);
-        }
+        // Save idempotency record for this retry
+        idempotencyService.checkAndSave(idempotencyKey, paymentId);
 
         updatePaymentStatus(payment, toStatus.name(), null);
         recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(), "Retry attempt", null);
@@ -282,5 +318,13 @@ public class PaymentServiceImpl implements PaymentService {
                 .createdAt(payment.getCreatedAt())
                 .updatedAt(payment.getUpdatedAt())
                 .build();
+    }
+
+    /**
+     * Escape LIKE wildcard characters to prevent unintended pattern matching.
+     */
+    private String escapeLike(String keyword) {
+        if (keyword == null) return null;
+        return keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 }

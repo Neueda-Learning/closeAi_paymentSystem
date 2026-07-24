@@ -1,8 +1,7 @@
 package com.hsbc.payment.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.*;
+
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -21,7 +20,13 @@ public class Payment {
     private String currency;
     private String description;
     private String status;
+
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String errorCode;
+
+    @Version
+    private Integer version;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

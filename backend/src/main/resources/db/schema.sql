@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS payments (
     description         TEXT,
     status              VARCHAR(20)  NOT NULL DEFAULT 'CREATED',
     error_code          VARCHAR(50),
+    version             INT          NOT NULL DEFAULT 0,
     created_at          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -28,3 +29,9 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
     payment_id  VARCHAR(36) NOT NULL,
     created_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Performance indexes
+CREATE INDEX idx_payments_status ON payments (status);
+CREATE INDEX idx_payments_currency ON payments (currency);
+CREATE INDEX idx_payments_created_at ON payments (created_at);
+CREATE INDEX idx_status_history_payment_id ON status_history (payment_id);

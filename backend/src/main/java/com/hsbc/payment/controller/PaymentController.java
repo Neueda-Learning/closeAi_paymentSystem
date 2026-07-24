@@ -6,7 +6,9 @@ import com.hsbc.payment.dto.request.PageRequest;
 import com.hsbc.payment.dto.response.ApiResponse;
 import com.hsbc.payment.dto.response.ErrorResponse;
 import com.hsbc.payment.dto.response.PaymentResponse;
+import com.hsbc.payment.dto.response.StatusHistoryResponse;
 import com.hsbc.payment.enums.ErrorCode;
+import com.hsbc.payment.service.IdempotencyService;
 import com.hsbc.payment.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -18,6 +20,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/payments")
 @RequiredArgsConstructor
@@ -25,6 +29,7 @@ import org.springframework.web.bind.annotation.*;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final IdempotencyService idempotencyService;
 
     @PostMapping
     @Operation(summary = "Create a new payment")
@@ -41,8 +46,11 @@ public class PaymentController {
             return ResponseEntity.badRequest().body(ApiResponse.fail(error));
         }
 
+        // Check if key already exists before calling service
+        boolean isDuplicate = idempotencyService.findPaymentIdByKey(idempotencyKey) != null;
         PaymentResponse response = paymentService.createPayment(request, idempotencyKey);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
+        HttpStatus status = isDuplicate ? HttpStatus.OK : HttpStatus.CREATED;
+        return ResponseEntity.status(status).body(ApiResponse.ok(response));
     }
 
     @GetMapping
@@ -74,8 +82,8 @@ public class PaymentController {
 
     @GetMapping("/{id}/history")
     @Operation(summary = "Get payment status change history")
-    public ResponseEntity<ApiResponse<PaymentResponse>> getPaymentHistory(@PathVariable String id) {
-        PaymentResponse response = paymentService.getPaymentHistory(id);
-        return ResponseEntity.ok(ApiResponse.ok(response));
+    public ResponseEntity<ApiResponse<List<StatusHistoryResponse>>> getPaymentHistory(@PathVariable String id) {
+        List<StatusHistoryResponse> history = paymentService.getStatusHistoryOnly(id);
+        return ResponseEntity.ok(ApiResponse.ok(history));
     }
 }
