@@ -53,3 +53,33 @@ export function retryPayment(id, idempotencyKey) {
     headers: { 'Idempotency-Key': idempotencyKey },
   })
 }
+
+/** POST /api/payments/{id}/cancel — cancel before COMPLETED */
+export function cancelPayment(id) {
+  return api.post(`/payments/${id}/cancel`)
+}
+
+/** POST /api/payments/{id}/reverse — reverse COMPLETED payment */
+export function reversePayment(id) {
+  return api.post(`/payments/${id}/reverse`)
+}
+
+/** POST /api/payments/batch — batch create payments */
+export function createBatch(payments) {
+  return api.post('/payments/batch', { payments })
+}
+
+/** GET /api/reports/daily-summary */
+export function getDailySummary() {
+  return api.get('/reports/daily-summary')
+}
+
+/** GET /api/reports/success-rate */
+export function getSuccessRate() {
+  return api.get('/reports/success-rate')
+}
+
+/** GET /api/reports/avg-processing-time */
+export function getAvgProcessingTime() {
+  return api.get('/reports/avg-processing-time')
+}

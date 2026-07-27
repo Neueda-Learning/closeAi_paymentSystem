@@ -13,8 +13,10 @@ public class StateMachineService {
         PaymentStatus.CREATED,   Set.of(PaymentStatus.VALIDATED, PaymentStatus.FAILED),
         PaymentStatus.VALIDATED, Set.of(PaymentStatus.SENT, PaymentStatus.FAILED),
         PaymentStatus.SENT,      Set.of(PaymentStatus.COMPLETED, PaymentStatus.FAILED),
-        PaymentStatus.COMPLETED, Set.of(),
-        PaymentStatus.FAILED,    Set.of(PaymentStatus.VALIDATED)
+        PaymentStatus.COMPLETED, Set.of(PaymentStatus.REVERSED),
+        PaymentStatus.FAILED,    Set.of(PaymentStatus.VALIDATED),
+        PaymentStatus.CANCELLED, Set.of(),
+        PaymentStatus.REVERSED,  Set.of()
     );
 
     public boolean canTransition(PaymentStatus from, PaymentStatus to) {

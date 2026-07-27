@@ -2,6 +2,9 @@ package com.hsbc.payment.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.hsbc.payment.dto.batch.BatchItemResult;
+import com.hsbc.payment.dto.batch.BatchPaymentRequest;
+import com.hsbc.payment.dto.batch.BatchPaymentResponse;
 import com.hsbc.payment.dto.request.CreatePaymentRequest;
 import com.hsbc.payment.dto.request.PageRequest;
 import com.hsbc.payment.dto.response.PaymentResponse;
@@ -22,8 +25,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.List;
-import java.util.UUID;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
@@ -328,6 +332,163 @@ public class PaymentServiceImpl implements PaymentService {
                 "Retry attempt #" + payment.getRetryCount(), null);
 
         return getPayment(paymentId);
+    }
+
+    // ===== Advanced Features =====
+
+    // --- Batch Payments ---
+    @Override
+    @Transactional
+    public BatchPaymentResponse createBatch(BatchPaymentRequest batchRequest) {
+        String batchId = UUID.randomUUID().toString();
+        List<BatchItemResult> items = new ArrayList<>();
+        int success = 0, failure = 0;
+
+        for (int i = 0; i < batchRequest.getPayments().size(); i++) {
+            try {
+                String key = batchId + "-" + i;
+                PaymentResponse resp = createPayment(batchRequest.getPayments().get(i), key);
+                items.add(BatchItemResult.builder().index(i).success(true).payment(resp).build());
+                success++;
+            } catch (Exception e) {
+                items.add(BatchItemResult.builder().index(i).success(false)
+                        .errorMessage(e.getMessage()).build());
+                failure++;
+            }
+        }
+
+        return BatchPaymentResponse.builder()
+                .batchId(batchId).totalCount(items.size())
+                .successCount(success).failureCount(failure)
+                .items(items).createdAt(LocalDateTime.now()).build();
+    }
+
+    // --- Cancel Payment (before COMPLETED) ---
+    @Override
+    @Transactional
+    public PaymentResponse cancelPayment(String paymentId) {
+        Payment payment = findPaymentById(paymentId);
+        PaymentStatus current = PaymentStatus.fromString(payment.getStatus());
+        if (current == PaymentStatus.COMPLETED) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION,
+                    "Cannot cancel a COMPLETED payment");
+        }
+        updatePaymentStatus(payment, "CANCELLED", null);
+        recordStatusHistory(paymentId, current.name(), "CANCELLED", "Payment cancelled by user", null);
+        return getPayment(paymentId);
+    }
+
+    // --- Reverse Payment (after COMPLETED, creates offsetting payment) ---
+    @Override
+    @Transactional
+    public PaymentResponse reversePayment(String paymentId) {
+        Payment original = findPaymentById(paymentId);
+        if (!"COMPLETED".equals(original.getStatus())) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION,
+                    "Only COMPLETED payments can be reversed");
+        }
+        // Mark original as REVERSED
+        updatePaymentStatus(original, "REVERSED", null);
+        recordStatusHistory(paymentId, "COMPLETED", "REVERSED", "Payment reversed", null);
+
+        // Create offsetting payment
+        String revKey = "REV-" + paymentId;
+        Payment reversal = new Payment();
+        reversal.setId(UUID.randomUUID().toString());
+        reversal.setIdempotencyKey(revKey);
+        reversal.setSourceAccount(original.getDestinationAccount());
+        reversal.setDestinationAccount(original.getSourceAccount());
+        reversal.setAmount(original.getAmount());
+        reversal.setCurrency(original.getCurrency());
+        reversal.setDescription("Reversal of " + paymentId);
+        reversal.setStatus("CREATED");
+        paymentMapper.insert(reversal);
+        recordStatusHistory(reversal.getId(), null, "CREATED", "Auto-created reversal", null);
+
+        return getPayment(paymentId);
+    }
+
+    // --- Reporting ---
+    @Override
+    public Map<String, Object> getDailySummary() {
+        LocalDateTime today = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
+
+        LambdaQueryWrapper<Payment> wrapper = new LambdaQueryWrapper<>();
+        wrapper.ge(Payment::getCreatedAt, today);
+
+        List<Payment> todayPayments = paymentMapper.selectList(wrapper);
+        long total = todayPayments.size();
+        long completed = todayPayments.stream().filter(p -> "COMPLETED".equals(p.getStatus())).count();
+        long failed = todayPayments.stream().filter(p -> "FAILED".equals(p.getStatus())).count();
+        double totalAmount = todayPayments.stream().mapToDouble(p -> p.getAmount().doubleValue()).sum();
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("date", today.toLocalDate().toString());
+        summary.put("totalPayments", total);
+        summary.put("completedPayments", completed);
+        summary.put("failedPayments", failed);
+        summary.put("totalAmount", new BigDecimal(String.format("%.2f", totalAmount)));
+        summary.put("successRate", total > 0 ? String.format("%.1f%%", 100.0 * completed / total) : "N/A");
+        return summary;
+    }
+
+    @Override
+    public Map<String, Object> getSuccessRate() {
+        List<Payment> allPayments = paymentMapper.selectList(null);
+        long total = allPayments.size();
+        long completed = allPayments.stream().filter(p -> "COMPLETED".equals(p.getStatus())).count();
+        long failed = allPayments.stream().filter(p -> "FAILED".equals(p.getStatus())).count();
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("totalPayments", total);
+        result.put("completed", completed);
+        result.put("failed", failed);
+        result.put("successRate", total > 0 ? String.format("%.1f%%", 100.0 * completed / total) : "N/A");
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> getAvgProcessingTime() {
+        List<StatusHistory> histories = statusHistoryMapper.selectList(null);
+
+        // Group by payment_id, find time from CREATED to COMPLETED
+        Map<String, LocalDateTime> createdMap = new LinkedHashMap<>();
+        Map<String, LocalDateTime> completedMap = new LinkedHashMap<>();
+
+        for (StatusHistory h : histories) {
+            if ("CREATED".equals(h.getToStatus())) createdMap.putIfAbsent(h.getPaymentId(), h.getChangedAt());
+            if ("COMPLETED".equals(h.getToStatus())) completedMap.putIfAbsent(h.getPaymentId(), h.getChangedAt());
+        }
+
+        double totalMs = 0;
+        int count = 0;
+        for (String pid : completedMap.keySet()) {
+            if (createdMap.containsKey(pid)) {
+                totalMs += java.time.Duration.between(createdMap.get(pid), completedMap.get(pid)).toMillis();
+                count++;
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("completedCount", count);
+        result.put("avgProcessingSeconds", count > 0 ? String.format("%.1f", totalMs / count / 1000.0) : "N/A");
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> getStatusDistribution() {
+        List<Payment> allPayments = paymentMapper.selectList(null);
+        Map<String, Long> counts = allPayments.stream()
+                .collect(Collectors.groupingBy(
+                        p -> p.getStatus() != null ? p.getStatus() : "UNKNOWN",
+                        Collectors.counting()));
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("total", allPayments.size());
+        for (Map.Entry<String, Long> e : counts.entrySet()) {
+            result.put(e.getKey().toLowerCase(), e.getValue());
+        }
+        return result;
     }
 
     // --- Private helpers ---

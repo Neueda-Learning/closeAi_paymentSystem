@@ -53,6 +53,14 @@ public class PaymentController {
         return ResponseEntity.status(status).body(ApiResponse.ok(response));
     }
 
+    @PostMapping("/batch")
+    @Operation(summary = "Create multiple payments in a batch")
+    public ResponseEntity<ApiResponse<?>> createBatch(
+            @Valid @RequestBody com.hsbc.payment.dto.batch.BatchPaymentRequest batchRequest) {
+        var response = paymentService.createBatch(batchRequest);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
+    }
+
     @GetMapping
     @Operation(summary = "List payments with optional filtering")
     public ResponseEntity<ApiResponse<?>> listPayments(

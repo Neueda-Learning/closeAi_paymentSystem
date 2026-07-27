@@ -55,11 +55,16 @@ class StateMachineServiceTest {
 
     // ===== Invalid transitions =====
 
-    @Test @DisplayName("COMPLETED is terminal — no transition out")
-    void completedIsTerminal() {
+    @Test @DisplayName("COMPLETED → REVERSED is valid (reversal), all others invalid")
+    void completedOnlyToReversed() {
         for (PaymentStatus target : PaymentStatus.values()) {
-            assertFalse(stateMachineService.canTransition(PaymentStatus.COMPLETED, target),
-                    "COMPLETED → " + target + " should be invalid");
+            if (target == PaymentStatus.REVERSED) {
+                assertTrue(stateMachineService.canTransition(PaymentStatus.COMPLETED, target),
+                        "COMPLETED → REVERSED should be valid");
+            } else {
+                assertFalse(stateMachineService.canTransition(PaymentStatus.COMPLETED, target),
+                        "COMPLETED → " + target + " should be invalid");
+            }
         }
     }
 
