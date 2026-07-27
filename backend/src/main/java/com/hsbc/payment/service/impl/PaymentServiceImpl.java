@@ -252,6 +252,16 @@ public class PaymentServiceImpl implements PaymentService {
         // Save idempotency record for this retry
         idempotencyService.checkAndSave(idempotencyKey, paymentId);
 
+        // Re-validate before allowing transition to VALIDATED
+        try {
+            validationService.validateOnTransition(payment);
+        } catch (BusinessException ex) {
+            updatePaymentStatus(payment, PaymentStatus.FAILED.name(), ex.getErrorCode().name());
+            recordStatusHistory(paymentId, fromStatus.name(), PaymentStatus.FAILED.name(),
+                    "Retry validation failed: " + ex.getMessage(), ex.getErrorCode().name());
+            return getPayment(paymentId);
+        }
+
         updatePaymentStatus(payment, toStatus.name(), null);
         recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(), "Retry attempt", null);
 
