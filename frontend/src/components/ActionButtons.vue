@@ -6,7 +6,7 @@
       <span>Retry limit reached ({{ retryCount }}/{{ MAX_RETRIES }}). This payment has permanently failed and cannot be retried or edited.</span>
     </div>
 
-    <div v-if="actions.length" class="action-bar">
+    <div v-if="actions.length" class="action-bar" :class="{ 'action-bar-inline': inline }">
       <button
         v-for="act in actions" :key="act.key"
         class="btn"
@@ -31,6 +31,7 @@ const props = defineProps({
   status: { type: String, required: true },
   retryCount: { type: Number, default: 0 },
   loading: { type: String, default: null },
+  inline: { type: Boolean, default: false },
 })
 defineEmits(['action'])
 
@@ -44,6 +45,8 @@ const actions = computed(() => {
 
 <style scoped>
 .action-bar { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+.action-bar-inline { margin-top: 0; }
+.action-bar-inline .btn { padding: 10px 22px; font-size: 13px; }
 .exhausted-banner {
   display: flex; align-items: center; gap: 10px;
   padding: 16px 20px;
