@@ -35,4 +35,10 @@ public class ReportsController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> avgProcessingTime() {
         return ResponseEntity.ok(ApiResponse.ok(paymentService.getAvgProcessingTime()));
     }
+
+    @GetMapping("/status-distribution")
+    @Operation(summary = "Get count per status for charting")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> statusDistribution() {
+        return ResponseEntity.ok(ApiResponse.ok(paymentService.getStatusDistribution()));
+    }
 }

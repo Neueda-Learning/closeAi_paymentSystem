@@ -38,4 +38,5 @@ public interface PaymentService {
     Map<String, Object> getDailySummary();
     Map<String, Object> getSuccessRate();
     Map<String, Object> getAvgProcessingTime();
+    Map<String, Object> getStatusDistribution();
 }

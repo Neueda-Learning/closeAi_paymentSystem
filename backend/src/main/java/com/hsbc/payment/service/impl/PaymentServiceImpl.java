@@ -475,6 +475,22 @@ public class PaymentServiceImpl implements PaymentService {
         return result;
     }
 
+    @Override
+    public Map<String, Object> getStatusDistribution() {
+        List<Payment> allPayments = paymentMapper.selectList(null);
+        Map<String, Long> counts = allPayments.stream()
+                .collect(Collectors.groupingBy(
+                        p -> p.getStatus() != null ? p.getStatus() : "UNKNOWN",
+                        Collectors.counting()));
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("total", allPayments.size());
+        for (Map.Entry<String, Long> e : counts.entrySet()) {
+            result.put(e.getKey().toLowerCase(), e.getValue());
+        }
+        return result;
+    }
+
     // --- Private helpers ---
 
     private Payment findPaymentById(String paymentId) {
