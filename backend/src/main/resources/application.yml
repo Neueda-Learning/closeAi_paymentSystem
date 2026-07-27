@@ -22,6 +22,30 @@ mybatis-plus:
       logic-delete-value: 1
       logic-not-delete-value: 0
 
+# ===== Risk Assessment (three-layer progressive) =====
+risk:
+  layer1:
+    enabled: true
+    large-amount-block: 1000000
+    large-amount-warning: 100000
+    night-time-start: 0
+    night-time-end: 5
+    self-transfer-score: 50
+    new-payee-score: 30
+    velocity-score: 35
+  layer2:
+    enabled: true
+    zscore-threshold: 3.0
+    iqr-multiplier: 1.5
+    velocity-deviation: 5
+  layer3:
+    enabled: false
+    timeout-seconds: 30
+    max-retries: 2
+  thresholds:
+    block: 60
+    review: 30
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html

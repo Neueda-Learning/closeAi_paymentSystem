@@ -24,7 +24,8 @@ public class PaymentResponse {
     private LocalDateTime updatedAt;
     private List<StatusHistoryResponse> statusHistory;
 
-    // AI risk assessment fields (added in Phase 4)
+    // AI risk assessment fields (Phase 4)
     private Integer riskScore;
     private String riskLevel;
+    private String riskDecision;
 }

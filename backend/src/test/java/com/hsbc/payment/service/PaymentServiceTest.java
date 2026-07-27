@@ -28,6 +28,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentServiceTest {
@@ -37,6 +38,8 @@ class PaymentServiceTest {
     @Mock StateMachineService stateMachineService;
     @Mock ValidationService validationService;
     @Mock IdempotencyService idempotencyService;
+    @Mock com.hsbc.payment.service.risk.RiskAssessmentService riskAssessmentService;
+    @Mock com.hsbc.payment.mapper.RiskAssessmentMapper riskAssessmentMapper;
     @InjectMocks PaymentServiceImpl paymentService;
 
     private CreatePaymentRequest validRequest;
@@ -48,6 +51,12 @@ class PaymentServiceTest {
         validRequest.setDestinationAccount("ACC-002");
         validRequest.setAmount(new BigDecimal("100.00"));
         validRequest.setCurrency("USD");
+
+        // Default risk assessment: APPROVE (lenient, not consumed by all tests)
+        lenient().when(riskAssessmentService.assess(any()))
+                .thenReturn(new com.hsbc.payment.service.risk.RiskAssessmentService.RiskAssessmentResult(
+                        0, com.hsbc.payment.enums.RiskLevel.LOW, com.hsbc.payment.enums.RiskDecision.APPROVE,
+                        List.of(), null, null));
     }
 
     // ===== Case 1: Happy path create =====

@@ -15,11 +15,13 @@ import com.hsbc.payment.enums.ErrorCode;
 import com.hsbc.payment.enums.PaymentStatus;
 import com.hsbc.payment.exception.BusinessException;
 import com.hsbc.payment.mapper.PaymentMapper;
+import com.hsbc.payment.mapper.RiskAssessmentMapper;
 import com.hsbc.payment.mapper.StatusHistoryMapper;
 import com.hsbc.payment.service.IdempotencyService;
 import com.hsbc.payment.service.PaymentService;
 import com.hsbc.payment.service.StateMachineService;
 import com.hsbc.payment.service.ValidationService;
+import com.hsbc.payment.service.risk.RiskAssessmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +45,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final StateMachineService stateMachineService;
     private final ValidationService validationService;
     private final IdempotencyService idempotencyService;
+    private final com.hsbc.payment.service.risk.RiskAssessmentService riskAssessmentService;
+    private final RiskAssessmentMapper riskAssessmentMapper;
 
     @Override
     @Transactional
@@ -206,10 +210,21 @@ public class PaymentServiceImpl implements PaymentService {
             return getPayment(paymentId);
         }
 
-        // ★ AI risk assessment hook (Phase 4: insert riskAssessmentService.assess(payment) here)
+        // ===== Risk Assessment (three-layer progressive) =====
+        RiskAssessmentService.RiskAssessmentResult riskResult = riskAssessmentService.assess(payment);
+        if (riskResult.riskDecision() == com.hsbc.payment.enums.RiskDecision.BLOCK) {
+            updatePaymentStatus(payment, PaymentStatus.FAILED.name(), ErrorCode.RISK_BLOCKED.name());
+            recordStatusHistory(paymentId, fromStatus.name(), PaymentStatus.FAILED.name(),
+                    "Risk BLOCKED: score=" + riskResult.totalScore() + ", level=" + riskResult.riskLevel(),
+                    ErrorCode.RISK_BLOCKED.name());
+            return getPayment(paymentId);
+        }
 
         updatePaymentStatus(payment, toStatus.name(), null);
-        recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(), null, null);
+        String riskNote = null;
+        if (riskResult.riskDecision() == com.hsbc.payment.enums.RiskDecision.REVIEW)
+            riskNote = "Risk REVIEW: score=" + riskResult.totalScore() + ", level=" + riskResult.riskLevel();
+        recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(), riskNote, null);
         return getPayment(paymentId);
     }
 
@@ -538,6 +553,8 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private PaymentResponse toPaymentResponse(Payment payment) {
+        com.hsbc.payment.entity.RiskAssessment latestRisk = riskAssessmentMapper != null
+                ? riskAssessmentMapper.findLatestByPaymentId(payment.getId()) : null;
         return PaymentResponse.builder()
                 .id(payment.getId())
                 .idempotencyKey(payment.getIdempotencyKey())
@@ -549,6 +566,9 @@ public class PaymentServiceImpl implements PaymentService {
                 .status(payment.getStatus())
                 .errorCode(payment.getErrorCode())
                 .retryCount(payment.getRetryCount())
+                .riskScore(latestRisk != null ? latestRisk.getRiskScore() : null)
+                .riskLevel(latestRisk != null ? latestRisk.getRiskLevel() : null)
+                .riskDecision(latestRisk != null ? latestRisk.getRiskDecision() : null)
                 .createdAt(payment.getCreatedAt())
                 .updatedAt(payment.getUpdatedAt())
                 .build();
