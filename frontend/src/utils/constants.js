@@ -29,6 +29,7 @@ export const STATUS_ACTIONS = {
               { key: 'fail',     label: 'Mark Failed', icon: 'Close', danger: true }],
   SENT:      [{ key: 'complete', label: 'Complete', icon: 'CircleCheck' },
               { key: 'fail',     label: 'Mark Failed', icon: 'Close', danger: true }],
-  FAILED:    [{ key: 'retry',    label: 'Retry', icon: 'Refresh' }],
+  FAILED:    [{ key: 'edit',     label: 'Edit',  icon: 'Edit' },
+              { key: 'retry',    label: 'Retry', icon: 'Refresh' }],
   COMPLETED: [],
 }

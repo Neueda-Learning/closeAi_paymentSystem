@@ -135,6 +135,40 @@ public class PaymentServiceImpl implements PaymentService {
         return response;
     }
 
+    @Override
+    @Transactional
+    public PaymentResponse updatePayment(String paymentId, CreatePaymentRequest request) {
+        Payment payment = findPaymentById(paymentId);
+        PaymentStatus currentStatus = PaymentStatus.fromString(payment.getStatus());
+
+        // Only allow edit in CREATED or FAILED status
+        if (currentStatus != PaymentStatus.CREATED && currentStatus != PaymentStatus.FAILED) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION,
+                    "Payment can only be edited in CREATED or FAILED status, current: " + currentStatus);
+        }
+
+        // Update editable fields
+        payment.setSourceAccount(request.getSourceAccount());
+        payment.setDestinationAccount(request.getDestinationAccount());
+        payment.setAmount(request.getAmount());
+        payment.setCurrency(request.getCurrency().toUpperCase());
+        payment.setDescription(request.getDescription());
+
+        // If FAILED, reset to CREATED and clear error
+        if (currentStatus == PaymentStatus.FAILED) {
+            payment.setStatus(PaymentStatus.CREATED.name());
+            payment.setErrorCode(null);
+            recordStatusHistory(paymentId, PaymentStatus.FAILED.name(), PaymentStatus.CREATED.name(),
+                    "Payment edited, reset for re-validation", null);
+        } else {
+            recordStatusHistory(paymentId, PaymentStatus.CREATED.name(), PaymentStatus.CREATED.name(),
+                    "Payment details updated", null);
+        }
+
+        paymentMapper.updateById(payment);
+        return toPaymentResponse(payment);
+    }
+
     // --- State transition methods ---
 
     @Override

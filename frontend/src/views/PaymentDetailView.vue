@@ -44,6 +44,36 @@
       </template>
     </el-dialog>
 
+    <!-- Edit Dialog -->
+    <el-dialog v-model="showEditDialog" title="Edit Payment" width="520px">
+      <div class="dialog-field">
+        <label class="dialog-label">Source Account</label>
+        <input v-model="editForm.sourceAccount" class="filter-input" style="width:100%" placeholder="e.g. ACC-00001" />
+      </div>
+      <div class="dialog-field">
+        <label class="dialog-label">Destination Account</label>
+        <input v-model="editForm.destinationAccount" class="filter-input" style="width:100%" placeholder="e.g. ACC-00002" />
+      </div>
+      <div class="dialog-field">
+        <label class="dialog-label">Amount</label>
+        <input v-model.number="editForm.amount" class="filter-input" style="width:100%" type="number" step="0.01" min="0.01" />
+      </div>
+      <div class="dialog-field">
+        <label class="dialog-label">Currency</label>
+        <select v-model="editForm.currency" class="filter-select" style="width:100%">
+          <option v-for="c in ['USD','EUR','GBP','CNY']" :key="c" :value="c">{{ c }}</option>
+        </select>
+      </div>
+      <div class="dialog-field">
+        <label class="dialog-label">Description</label>
+        <input v-model="editForm.description" class="filter-input" style="width:100%" placeholder="Optional..." />
+      </div>
+      <template #footer>
+        <el-button @click="showEditDialog = false" :style="{ borderRadius:'9999px' }">Cancel</el-button>
+        <el-button type="primary" @click="doEdit" :loading="actionLoading === 'edit'" :style="{ borderRadius:'9999px', background:'#191c1f', borderColor:'#191c1f' }">Save & Re-validate</el-button>
+      </template>
+    </el-dialog>
+
     <!-- Status Timeline -->
     <StatusTimeline :history="payment.statusHistory || []" />
   </div>
@@ -59,7 +89,7 @@ import StatusBadge from '../components/StatusBadge.vue'
 import ErrorPanel from '../components/ErrorPanel.vue'
 import ActionButtons from '../components/ActionButtons.vue'
 import StatusTimeline from '../components/StatusTimeline.vue'
-import { getPayment, validatePayment, sendPayment, completePayment, failPayment, retryPayment } from '../api/payment'
+import { getPayment, updatePayment, validatePayment, sendPayment, completePayment, failPayment, retryPayment } from '../api/payment'
 import { ERROR_CODE_MAP } from '../utils/constants'
 
 const route = useRoute()
@@ -67,8 +97,10 @@ const payment = ref(null)
 const loading = ref(true)
 const actionLoading = ref(null)
 const showFailDialog = ref(false)
+const showEditDialog = ref(false)
 const failErrorCode = ref('PROCESSING_ERROR')
 const failReason = ref('')
+const editForm = ref({ sourceAccount: '', destinationAccount: '', amount: 0, currency: 'USD', description: '' })
 
 onMounted(() => load())
 
@@ -82,6 +114,18 @@ async function load() {
 
 async function handleAction(action) {
   if (action === 'fail') { showFailDialog.value = true; return }
+  if (action === 'edit') {
+    // Pre-fill edit form with current payment data
+    editForm.value = {
+      sourceAccount: payment.value.sourceAccount,
+      destinationAccount: payment.value.destinationAccount,
+      amount: payment.value.amount,
+      currency: payment.value.currency,
+      description: payment.value.description || '',
+    }
+    showEditDialog.value = true
+    return
+  }
   try { await ElMessageBox.confirm(`Confirm: ${action} this payment?`, 'Action', { confirmButtonText: 'Yes', cancelButtonText: 'No' }) } catch { return }
 
   actionLoading.value = action
@@ -94,6 +138,24 @@ async function handleAction(action) {
     }
     const res = await actions[action]()
     if (res.success) payment.value = res.data
+  } finally { actionLoading.value = null }
+}
+
+async function doEdit() {
+  actionLoading.value = 'edit'
+  try {
+    // Step 1: Update payment with edited data
+    const updateRes = await updatePayment(route.params.id, editForm.value)
+    if (!updateRes.success) return
+
+    // Step 2: Re-validate (only if status is now CREATED)
+    if (updateRes.data.status === 'CREATED') {
+      const validateRes = await validatePayment(route.params.id)
+      if (validateRes.success) payment.value = validateRes.data
+    } else {
+      payment.value = updateRes.data
+    }
+    showEditDialog.value = false
   } finally { actionLoading.value = null }
 }
 
