@@ -15,6 +15,7 @@
         <div class="kv"><span class="k">Destination</span><span class="v">{{ payment.destinationAccount }}</span></div>
         <div class="kv"><span class="k">Description</span><span class="v desc">{{ payment.description || '-' }}</span></div>
         <div class="kv"><span class="k">Created</span><span class="v">{{ formatTime(payment.createdAt) }}</span></div>
+        <div class="kv"><span class="k">Retry Count</span><span class="v">{{ payment.retryCount || 0 }} / 3</span></div>
         <div class="kv"><span class="k">Updated</span><span class="v">{{ formatTime(payment.updatedAt) }}</span></div>
         <div class="kv"><span class="k">Idempotency Key</span><span class="v mono">{{ payment.idempotencyKey?.slice(0, 16) }}...</span></div>
       </div>
@@ -24,7 +25,7 @@
     <ErrorPanel :error-code="payment.errorCode" />
 
     <!-- Actions -->
-    <ActionButtons :status="payment.status" :loading="actionLoading" @action="handleAction" />
+    <ActionButtons :status="payment.status" :retry-count="payment.retryCount || 0" :loading="actionLoading" @action="handleAction" />
 
     <!-- Fail Dialog -->
     <el-dialog v-model="showFailDialog" title="Mark as Failed" width="400px">

@@ -19,6 +19,7 @@ public class PaymentResponse {
     private String description;
     private String status;
     private String errorCode;
+    private Integer retryCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<StatusHistoryResponse> statusHistory;

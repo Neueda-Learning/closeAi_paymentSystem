@@ -82,6 +82,7 @@ public class GlobalExceptionHandler {
             case DUPLICATE_PAYMENT -> HttpStatus.CONFLICT;
             case PAYMENT_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case RISK_BLOCKED -> HttpStatus.FORBIDDEN;
+            case RETRY_EXHAUSTED -> HttpStatus.CONFLICT;
             case NETWORK_ERROR -> HttpStatus.SERVICE_UNAVAILABLE;
             case PROCESSING_ERROR -> HttpStatus.INTERNAL_SERVER_ERROR;
         };

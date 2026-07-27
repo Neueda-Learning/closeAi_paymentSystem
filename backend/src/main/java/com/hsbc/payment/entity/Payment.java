@@ -24,6 +24,8 @@ public class Payment {
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String errorCode;
 
+    private Integer retryCount;
+
     @Version
     private Integer version;
 

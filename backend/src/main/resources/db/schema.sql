@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS payments (
     description         TEXT,
     status              VARCHAR(20)  NOT NULL DEFAULT 'CREATED',
     error_code          VARCHAR(50),
+    retry_count         INT          NOT NULL DEFAULT 0,
     version             INT          NOT NULL DEFAULT 0,
     created_at          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

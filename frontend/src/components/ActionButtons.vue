@@ -16,10 +16,22 @@
 import { computed } from 'vue'
 import { STATUS_ACTIONS } from '../utils/constants'
 
-const props = defineProps({ status: { type: String, required: true }, loading: { type: String, default: null } })
+const MAX_RETRIES = 3
+
+const props = defineProps({
+  status: { type: String, required: true },
+  retryCount: { type: Number, default: 0 },
+  loading: { type: String, default: null },
+})
 defineEmits(['action'])
 
-const actions = computed(() => STATUS_ACTIONS[props.status] || [])
+const actions = computed(() => {
+  let acts = STATUS_ACTIONS[props.status] || []
+  if (props.status === 'FAILED' && props.retryCount >= MAX_RETRIES) {
+    acts = acts.filter(a => a.key !== 'retry')
+  }
+  return acts
+})
 </script>
 
 <style scoped>

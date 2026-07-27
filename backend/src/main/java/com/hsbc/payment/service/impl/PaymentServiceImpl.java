@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 public class PaymentServiceImpl implements PaymentService {
 
     private static final int MAX_LIMIT = 100;
+    private static final int MAX_RETRIES = 3;
 
     private final PaymentMapper paymentMapper;
     private final StatusHistoryMapper statusHistoryMapper;
@@ -268,7 +269,7 @@ public class PaymentServiceImpl implements PaymentService {
         String existingForRetry = idempotencyService.findPaymentIdByKey(idempotencyKey);
         if (existingForRetry != null) {
             if (existingForRetry.equals(paymentId)) {
-                return getPayment(paymentId);  // Same payment retry → return current state
+                return getPayment(paymentId);
             }
             throw new BusinessException(ErrorCode.DUPLICATE_PAYMENT,
                     "Idempotency key already used for another payment: " + idempotencyKey);
@@ -276,8 +277,16 @@ public class PaymentServiceImpl implements PaymentService {
 
         Payment payment = findPaymentById(paymentId);
         PaymentStatus fromStatus = PaymentStatus.fromString(payment.getStatus());
-        PaymentStatus toStatus = PaymentStatus.VALIDATED;
 
+        // Check retry count limit
+        int currentRetries = payment.getRetryCount() != null ? payment.getRetryCount() : 0;
+        if (currentRetries >= MAX_RETRIES) {
+            throw new BusinessException(ErrorCode.RETRY_EXHAUSTED,
+                    "Payment has been retried " + currentRetries
+                    + " times (max: " + MAX_RETRIES + ") and cannot be retried further");
+        }
+
+        PaymentStatus toStatus = PaymentStatus.VALIDATED;
         if (!stateMachineService.canTransition(fromStatus, toStatus)) {
             throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION,
                     "Cannot retry from status " + fromStatus);
@@ -286,18 +295,29 @@ public class PaymentServiceImpl implements PaymentService {
         // Save idempotency record for this retry
         idempotencyService.checkAndSave(idempotencyKey, paymentId);
 
+        // Increment retry count
+        payment.setRetryCount(currentRetries + 1);
+
         // Re-validate before allowing transition to VALIDATED
         try {
             validationService.validateOnTransition(payment);
         } catch (BusinessException ex) {
-            updatePaymentStatus(payment, PaymentStatus.FAILED.name(), ex.getErrorCode().name());
+            // If retry count exhausted, use RETRY_EXHAUSTED error code
+            ErrorCode failCode = ex.getErrorCode();
+            String reason = "Retry #" + payment.getRetryCount() + " validation failed: " + ex.getMessage();
+            if (payment.getRetryCount() >= MAX_RETRIES) {
+                failCode = ErrorCode.RETRY_EXHAUSTED;
+                reason = "Retry exhausted after " + payment.getRetryCount() + " attempts: " + ex.getMessage();
+            }
+            updatePaymentStatus(payment, PaymentStatus.FAILED.name(), failCode.name());
             recordStatusHistory(paymentId, fromStatus.name(), PaymentStatus.FAILED.name(),
-                    "Retry validation failed: " + ex.getMessage(), ex.getErrorCode().name());
+                    reason, failCode.name());
             return getPayment(paymentId);
         }
 
         updatePaymentStatus(payment, toStatus.name(), null);
-        recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(), "Retry attempt", null);
+        recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(),
+                "Retry attempt #" + payment.getRetryCount(), null);
 
         return getPayment(paymentId);
     }
@@ -359,6 +379,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .description(payment.getDescription())
                 .status(payment.getStatus())
                 .errorCode(payment.getErrorCode())
+                .retryCount(payment.getRetryCount())
                 .createdAt(payment.getCreatedAt())
                 .updatedAt(payment.getUpdatedAt())
                 .build();
