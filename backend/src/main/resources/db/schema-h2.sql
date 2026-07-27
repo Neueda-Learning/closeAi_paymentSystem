@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS payments (
     description         TEXT,
     status              VARCHAR(20)  NOT NULL DEFAULT 'CREATED',
     error_code          VARCHAR(50),
+    retry_count         INT          NOT NULL DEFAULT 0,
     version             INT          NOT NULL DEFAULT 0,
     created_at          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -29,3 +30,25 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
     payment_id  VARCHAR(36) NOT NULL,
     created_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS accounts (
+    account_number  VARCHAR(50)   PRIMARY KEY,
+    account_name    VARCHAR(100)  NOT NULL,
+    balance         DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    currency        VARCHAR(3)    NOT NULL DEFAULT 'USD',
+    created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Seed accounts
+MERGE INTO accounts (account_number, account_name, balance, currency) KEY(account_number) VALUES
+    ('ACC-00001', 'HSBC Operations',   10000000.00, 'USD'),
+    ('ACC-00002', 'HSBC Trading Desk',  5000000.00, 'USD'),
+    ('ACC-00003', 'HSBC Custody',       3000000.00, 'USD'),
+    ('ACC-00004', 'HSBC Markets',       2000000.00, 'EUR'),
+    ('ACC-00005', 'HSBC Wealth',        1000000.00, 'GBP'),
+    ('ACC-00006', 'HSBC Digital',        500000.00, 'CNY'),
+    ('ACC-00007', 'HSBC Retail',         200000.00, 'USD'),
+    ('ACC-00008', 'HSBC Commercial',     100000.00, 'USD'),
+    ('ACC-00009', 'HSBC Investment',       5000.00, 'USD'),
+    ('ACC-00010', 'HSBC Low Balance',         0.00, 'USD');

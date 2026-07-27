@@ -73,6 +73,15 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.ok(result.getRecords(), result.getTotal()));
     }
 
+    @PutMapping("/{id}")
+    @Operation(summary = "Update payment details (only from CREATED or FAILED status)")
+    public ResponseEntity<ApiResponse<PaymentResponse>> updatePayment(
+            @PathVariable String id,
+            @Valid @RequestBody CreatePaymentRequest request) {
+        PaymentResponse response = paymentService.updatePayment(id, request);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Get payment by ID with full details and status history")
     public ResponseEntity<ApiResponse<PaymentResponse>> getPayment(@PathVariable String id) {

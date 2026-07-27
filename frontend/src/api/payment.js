@@ -1,5 +1,10 @@
 import api from './index'
 
+/** PUT /api/payments/{id} — update payment (only CREATED or FAILED) */
+export function updatePayment(id, data) {
+  return api.put(`/payments/${id}`, data)
+}
+
 /** POST /api/payments — create a new payment */
 export function createPayment(data, idempotencyKey) {
   return api.post('/payments', data, {

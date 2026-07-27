@@ -14,6 +14,7 @@ public interface PaymentService {
     Page<PaymentResponse> listPayments(PageRequest pageRequest);
     PaymentResponse getPaymentHistory(String paymentId);
     List<StatusHistoryResponse> getStatusHistoryOnly(String paymentId);
+    PaymentResponse updatePayment(String paymentId, CreatePaymentRequest request);
     PaymentResponse processValidate(String paymentId);
     PaymentResponse processSend(String paymentId);
     PaymentResponse processComplete(String paymentId);
