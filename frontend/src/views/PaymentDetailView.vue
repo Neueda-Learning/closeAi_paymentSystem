@@ -90,7 +90,7 @@ import StatusBadge from '../components/StatusBadge.vue'
 import ErrorPanel from '../components/ErrorPanel.vue'
 import ActionButtons from '../components/ActionButtons.vue'
 import StatusTimeline from '../components/StatusTimeline.vue'
-import { getPayment, updatePayment, validatePayment, sendPayment, completePayment, failPayment, retryPayment } from '../api/payment'
+import { getPayment, updatePayment, validatePayment, sendPayment, completePayment, failPayment, retryPayment, cancelPayment, reversePayment } from '../api/payment'
 import { ERROR_CODE_MAP } from '../utils/constants'
 
 const route = useRoute()
@@ -137,6 +137,8 @@ async function handleAction(action) {
       send:     () => sendPayment(route.params.id),
       complete: () => completePayment(route.params.id),
       retry:    () => retryPayment(route.params.id, crypto.randomUUID()),
+      cancel:   () => cancelPayment(route.params.id),
+      reverse:  () => reversePayment(route.params.id),
     }
     const res = await actions[action]()
     if (res.success) payment.value = res.data

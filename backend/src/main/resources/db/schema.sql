@@ -58,4 +58,28 @@ ON DUPLICATE KEY UPDATE account_name = VALUES(account_name);
 CREATE INDEX idx_payments_status ON payments (status);
 CREATE INDEX idx_payments_currency ON payments (currency);
 CREATE INDEX idx_payments_created_at ON payments (created_at);
+CREATE TABLE IF NOT EXISTS exchange_rates (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    from_currency   VARCHAR(3) NOT NULL,
+    to_currency     VARCHAR(3) NOT NULL,
+    rate            DECIMAL(15,6) NOT NULL,
+    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_currency_pair (from_currency, to_currency)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO exchange_rates (from_currency, to_currency, rate) VALUES
+    ('USD', 'EUR', 0.92), ('USD', 'GBP', 0.79), ('USD', 'CNY', 7.24),
+    ('EUR', 'USD', 1.09), ('EUR', 'GBP', 0.86), ('EUR', 'CNY', 7.87),
+    ('GBP', 'USD', 1.27), ('GBP', 'EUR', 1.16), ('GBP', 'CNY', 9.15),
+    ('CNY', 'USD', 0.138), ('CNY', 'EUR', 0.127), ('CNY', 'GBP', 0.109)
+ON DUPLICATE KEY UPDATE rate = VALUES(rate);
+
+CREATE TABLE IF NOT EXISTS notification_log (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    payment_id      VARCHAR(36),
+    event_type      VARCHAR(50) NOT NULL,
+    message         TEXT NOT NULL,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE INDEX idx_status_history_payment_id ON status_history (payment_id);

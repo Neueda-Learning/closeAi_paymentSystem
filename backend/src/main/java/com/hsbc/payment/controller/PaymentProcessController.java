@@ -58,4 +58,16 @@ public class PaymentProcessController {
         PaymentResponse response = paymentService.processRetry(id, idempotencyKey);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
+
+    @PostMapping("/cancel")
+    @Operation(summary = "Cancel payment (before COMPLETED)")
+    public ResponseEntity<ApiResponse<PaymentResponse>> cancel(@PathVariable String id) {
+        return ResponseEntity.ok(ApiResponse.ok(paymentService.cancelPayment(id)));
+    }
+
+    @PostMapping("/reverse")
+    @Operation(summary = "Reverse a completed payment (creates offsetting payment)")
+    public ResponseEntity<ApiResponse<PaymentResponse>> reverse(@PathVariable String id) {
+        return ResponseEntity.ok(ApiResponse.ok(paymentService.reversePayment(id)));
+    }
 }

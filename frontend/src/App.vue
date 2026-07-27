@@ -5,6 +5,7 @@
       <nav class="nav">
         <router-link to="/payments" class="nav-link" active-class="active">Payments</router-link>
         <router-link to="/payments/create" class="nav-link" active-class="active">Create</router-link>
+        <router-link to="/reports" class="nav-link" active-class="active">Reports</router-link>
       </nav>
     </header>
     <main class="main">

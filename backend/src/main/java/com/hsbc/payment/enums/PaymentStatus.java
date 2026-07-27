@@ -5,7 +5,9 @@ public enum PaymentStatus {
     VALIDATED,
     SENT,
     COMPLETED,
-    FAILED;
+    FAILED,
+    CANCELLED,
+    REVERSED;
 
     public static PaymentStatus fromString(String value) {
         if (value == null) return null;
