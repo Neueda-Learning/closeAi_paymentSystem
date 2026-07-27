@@ -84,8 +84,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessageBox, ElMessage } from 'element-plus'
 import StatusBadge from '../components/StatusBadge.vue'
 import ErrorPanel from '../components/ErrorPanel.vue'
 import ActionButtons from '../components/ActionButtons.vue'
@@ -94,6 +94,7 @@ import { getPayment, updatePayment, validatePayment, sendPayment, completePaymen
 import { ERROR_CODE_MAP } from '../utils/constants'
 
 const route = useRoute()
+const router = useRouter()
 const payment = ref(null)
 const loading = ref(true)
 const actionLoading = ref(null)
@@ -139,6 +140,15 @@ async function handleAction(action) {
     }
     const res = await actions[action]()
     if (res.success) payment.value = res.data
+  } catch (err) {
+    // If retry exhausted, show dialog and redirect
+    if (err?.code === 'RETRY_EXHAUSTED') {
+      ElMessageBox.alert(
+        'This payment has exceeded the maximum retry limit (3/3). It is now permanently failed and cannot be retried.',
+        'Retry Limit Exhausted',
+        { confirmButtonText: 'Back to Payments', type: 'error', center: true }
+      ).then(() => { router.push('/payments') })
+    }
   } finally { actionLoading.value = null }
 }
 

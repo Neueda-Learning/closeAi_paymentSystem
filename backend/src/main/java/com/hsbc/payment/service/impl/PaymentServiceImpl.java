@@ -148,6 +148,14 @@ public class PaymentServiceImpl implements PaymentService {
                     "Payment can only be edited in CREATED or FAILED status, current: " + currentStatus);
         }
 
+        // Block edit if retry exhausted
+        int retries = payment.getRetryCount() != null ? payment.getRetryCount() : 0;
+        if (currentStatus == PaymentStatus.FAILED && retries >= MAX_RETRIES) {
+            throw new BusinessException(ErrorCode.RETRY_EXHAUSTED,
+                    "Payment retry count exhausted (" + retries + "/" + MAX_RETRIES
+                    + "), cannot edit. This payment is permanently failed.");
+        }
+
         // Update editable fields
         payment.setSourceAccount(request.getSourceAccount());
         payment.setDestinationAccount(request.getDestinationAccount());
