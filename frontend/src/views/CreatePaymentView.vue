@@ -1,6 +1,36 @@
 <template>
-  <div>
+  <div class="create-page">
     <PaymentForm :loading="loading" @submit="handleSubmit" />
+
+    <section class="promo-banner" aria-label="HSBC payment protection banner">
+      <div class="promo-badge" aria-hidden="true">
+        <span class="promo-badge-mark" role="img" aria-label="HSBC logo">
+          <img src="/logo.png" alt="HSBC logo" />
+        </span>
+        <span class="promo-badge-text">HSBC</span>
+      </div>
+
+      <div class="marquee" role="status" aria-live="polite">
+        <div class="marquee-track">
+          <span class="marquee-item">Every payment is protected by HSBC-grade security</span>
+          <span class="marquee-dot">•</span>
+          <span class="marquee-item">每一笔支付都有保障</span>
+          <span class="marquee-dot">•</span>
+          <span class="marquee-item">Risk monitoring · Idempotency · Audit trail</span>
+          <span class="marquee-dot">•</span>
+          <span class="marquee-item">Secure transfer, trusted delivery, full visibility</span>
+        </div>
+        <div class="marquee-track" aria-hidden="true">
+          <span class="marquee-item">Every payment is protected by HSBC-grade security</span>
+          <span class="marquee-dot">•</span>
+          <span class="marquee-item">每一笔支付都有保障</span>
+          <span class="marquee-dot">•</span>
+          <span class="marquee-item">Risk monitoring · Idempotency · Audit trail</span>
+          <span class="marquee-dot">•</span>
+          <span class="marquee-item">Secure transfer, trusted delivery, full visibility</span>
+        </div>
+      </div>
+    </section>
 
     <!-- Success Modal -->
     <el-dialog v-model="showResult" title="Payment Created" width="480px" center>
@@ -51,9 +81,104 @@ function goDetail() {
 </script>
 
 <style scoped>
+.create-page {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  min-height: calc(100vh - 156px);
+}
+
 .result-card { display: flex; flex-direction: column; gap: 14px; padding: 12px 0; }
 .result-row { display: flex; justify-content: space-between; align-items: center; font-family: Inter, system-ui, sans-serif; font-size: 14px; }
 .lbl { color: #999; font-weight: 600; letter-spacing: 0.16px; }
 .val { color: #191c1f; font-weight: 700; }
 .mono { font-family: 'SF Mono','Fira Code',monospace; font-size: 13px; }
+
+/* Bottom ad strip fills the empty space below the form and adds movement for the create page. */
+.promo-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 18px 20px;
+  border: 2px solid #f4f4f4;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #fff 0%, #fff7f7 45%, #fff 100%);
+  overflow: hidden;
+}
+
+.promo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+  padding: 8px 14px;
+  border-radius: 9999px;
+  background: #f8f0f0;
+  color: #8c1d18;
+  font-family: Inter, system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+}
+
+.promo-badge-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 98px;
+  height: 40px;
+  overflow: hidden;
+}
+
+.promo-badge-mark img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+.promo-badge-text {
+  font-size: 14px;
+}
+
+.marquee {
+  position: relative;
+  display: flex;
+  gap: 24px;
+  white-space: nowrap;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%);
+}
+
+.marquee-track {
+  display: inline-flex;
+  align-items: center;
+  gap: 24px;
+  min-width: 100%;
+  flex-shrink: 0;
+  animation: marquee-scroll 18s linear infinite;
+}
+
+.marquee-item {
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #191c1f;
+}
+
+.marquee-dot {
+  color: #d71920;
+  font-weight: 900;
+}
+
+@keyframes marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+@media (max-width: 640px) {
+  .create-page { min-height: auto; }
+  .promo-banner { padding: 14px 16px; }
+  .marquee-item { font-size: 13px; }
+}
 </style>

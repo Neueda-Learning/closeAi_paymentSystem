@@ -138,7 +138,15 @@ onMounted(() => loadAll())
 </script>
 
 <style scoped>
-.reports { max-width: 1120px; margin: 0 auto; transform: translateY(-20px); margin-bottom: -20px; }
+/* Make the reports page stretch with the viewport instead of staying boxed in on large screens. */
+.reports {
+  width: 100%;
+  max-width: none;
+  margin: 0 auto;
+  padding: 0;
+  transform: translateY(-20px);
+  margin-bottom: -20px;
+}
 .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .page-title { font-family: Inter, system-ui, sans-serif; font-size: 28px; font-weight: 700; color: #191c1f; letter-spacing: -0.28px; }
 .refresh-btn {
@@ -150,18 +158,39 @@ onMounted(() => loadAll())
 .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* KPI */
-.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-bottom: 6px; }
-.kpi-card { padding: 14px 18px; border-radius: 24px; border: 2px solid #f4f4f4; background: #fff; display: flex; flex-direction: column; gap: 4px; }
+/* KPI: keep the five summary cards evenly distributed on wide screens. */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.kpi-card {
+  min-height: 112px;
+  padding: 14px 18px;
+  border-radius: 24px;
+  border: 2px solid #f4f4f4;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
 .kpi-label { font-family: Inter, sans-serif; font-size: 12px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.24px; }
 .kpi-value { font-family: Inter, sans-serif; font-size: 28px; font-weight: 800; color: #191c1f; letter-spacing: -0.28px; }
 .kpi-card.success .kpi-value { color: #059669; }
 .kpi-card.danger .kpi-value { color: #e23b4a; }
 
-/* Charts */
-.chart-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 0; }
-@media (max-width: 900px) { .chart-row { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 768px) { .chart-row { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+/* Charts: keep a clear vertical gap below the KPI row and allow cards to wrap. */
+.chart-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  margin-bottom: 0;
+}
+@media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .chart-row { grid-template-columns: 1fr 1fr; } .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 768px) { .chart-row { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: 1fr; } }
 .chart-card { border-radius: 24px; border: 2px solid #f4f4f4; background: #fff; padding: 14px; }
 .chart-title { font-family: Inter, sans-serif; font-size: 14px; font-weight: 700; color: #191c1f; margin-bottom: 6px; }
 .chart { height: 280px; width: 100%; }
