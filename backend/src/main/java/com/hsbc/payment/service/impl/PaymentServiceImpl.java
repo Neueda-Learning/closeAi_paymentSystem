@@ -14,6 +14,8 @@ import com.hsbc.payment.entity.StatusHistory;
 import com.hsbc.payment.enums.ErrorCode;
 import com.hsbc.payment.enums.PaymentStatus;
 import com.hsbc.payment.exception.BusinessException;
+import com.hsbc.payment.entity.Account;
+import com.hsbc.payment.mapper.AccountMapper;
 import com.hsbc.payment.mapper.PaymentMapper;
 import com.hsbc.payment.mapper.RiskAssessmentMapper;
 import com.hsbc.payment.mapper.StatusHistoryMapper;
@@ -47,6 +49,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final IdempotencyService idempotencyService;
     private final com.hsbc.payment.service.risk.RiskAssessmentService riskAssessmentService;
     private final RiskAssessmentMapper riskAssessmentMapper;
+    private final AccountMapper accountMapper;
 
     @Override
     @Transactional
@@ -265,8 +268,27 @@ public class PaymentServiceImpl implements PaymentService {
                     "Cannot transition from " + fromStatus + " to " + toStatus);
         }
 
+        // Update account balances: deduct from source, credit to destination
+        Account srcAccount = accountMapper.selectById(payment.getSourceAccount());
+        Account dstAccount = accountMapper.selectById(payment.getDestinationAccount());
+        if (srcAccount == null || dstAccount == null) {
+            throw new BusinessException(ErrorCode.PROCESSING_ERROR,
+                    "Source or destination account not found during completion");
+        }
+
+        // Deduct from source
+        srcAccount.setBalance(srcAccount.getBalance().subtract(payment.getAmount()));
+        accountMapper.updateById(srcAccount);
+
+        // Credit to destination (same currency — cross-currency handled separately)
+        dstAccount.setBalance(dstAccount.getBalance().add(payment.getAmount()));
+        accountMapper.updateById(dstAccount);
+
         updatePaymentStatus(payment, toStatus.name(), null);
-        recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(), null, null);
+        recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(),
+                "Completed: transferred " + payment.getAmount() + " " + payment.getCurrency()
+                + " from " + payment.getSourceAccount() + " to " + payment.getDestinationAccount(),
+                null);
 
         return getPayment(paymentId);
     }

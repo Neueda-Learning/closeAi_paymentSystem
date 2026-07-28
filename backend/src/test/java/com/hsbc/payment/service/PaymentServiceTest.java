@@ -40,6 +40,7 @@ class PaymentServiceTest {
     @Mock IdempotencyService idempotencyService;
     @Mock com.hsbc.payment.service.risk.RiskAssessmentService riskAssessmentService;
     @Mock com.hsbc.payment.mapper.RiskAssessmentMapper riskAssessmentMapper;
+    @Mock com.hsbc.payment.mapper.AccountMapper accountMapper;
     @InjectMocks PaymentServiceImpl paymentService;
 
     private CreatePaymentRequest validRequest;
@@ -57,6 +58,18 @@ class PaymentServiceTest {
                 .thenReturn(new com.hsbc.payment.service.risk.RiskAssessmentService.RiskAssessmentResult(
                         0, com.hsbc.payment.enums.RiskLevel.LOW, com.hsbc.payment.enums.RiskDecision.APPROVE,
                         List.of(), null, null));
+
+        // Default accounts for processComplete balance transfer
+        com.hsbc.payment.entity.Account srcAccount = new com.hsbc.payment.entity.Account();
+        srcAccount.setAccountNumber("ACC-001"); srcAccount.setBalance(new java.math.BigDecimal("1000000"));
+        com.hsbc.payment.entity.Account dstAccount = new com.hsbc.payment.entity.Account();
+        dstAccount.setAccountNumber("ACC-002"); dstAccount.setBalance(new java.math.BigDecimal("5000000"));
+        lenient().when(accountMapper.selectById("ACC-001")).thenReturn(srcAccount);
+        lenient().when(accountMapper.selectById("ACC-002")).thenReturn(dstAccount);
+        lenient().when(accountMapper.selectById("ACC-010")).thenReturn(srcAccount);
+        lenient().when(accountMapper.selectById("ACC-020")).thenReturn(dstAccount);
+        lenient().when(accountMapper.selectById(anyString())).thenReturn(srcAccount);
+        lenient().when(accountMapper.updateById(any())).thenReturn(1);
     }
 
     // ===== Case 1: Happy path create =====
