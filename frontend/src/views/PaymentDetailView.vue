@@ -219,11 +219,11 @@ function formatTime(t) { return t ? new Date(t).toLocaleString() : '' }
 </script>
 
 <style scoped>
-.detail { overflow: hidden; transform: translateY(-20px); margin-bottom: -20px; }
+.detail { overflow: hidden; height: calc(100vh - 156px); transform: translateY(-20px); margin-bottom: -20px; }
 .page-title { font-family: Inter, system-ui, sans-serif; font-size: 28px; font-weight: 700; color: #191c1f; margin-bottom: 16px; letter-spacing: -0.28px; }
 
 /* Two-column layout */
-.detail-layout { display: flex; gap: 28px; align-items: flex-start; height: calc(100vh - 175px); }
+.detail-layout { display: flex; gap: 28px; align-items: stretch; height: calc(100% - 44px); }
 .sidebar { width: 280px; flex-shrink: 0; align-self: stretch; display: flex; flex-direction: column; overflow: hidden; }
 .status-section {
   flex-shrink: 0;
@@ -235,7 +235,7 @@ function formatTime(t) { return t ? new Date(t).toLocaleString() : '' }
   margin-bottom: 20px;
 }
 .timeline-scroll { flex: 1; overflow-y: auto; min-height: 0; }
-.main-content { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.main-content { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-start; }
 .status-label {
   font-family: Inter, system-ui, sans-serif;
   font-size: 11px; font-weight: 600; color: #999;
@@ -250,13 +250,14 @@ function formatTime(t) { return t ? new Date(t).toLocaleString() : '' }
 }
 
 @media (max-width: 768px) {
+  .detail { height: auto; transform: none; margin-bottom: 0; }
   .detail-layout { flex-direction: column; height: auto; }
   .sidebar { width: 100%; align-self: auto; overflow: visible; }
   .timeline-scroll { flex: none; max-height: none; overflow-y: visible; }
   .grid { grid-template-columns: 1fr 1fr; }
 }
 
-.card { border: 2px solid #f4f4f4; border-radius: 24px; overflow: hidden; margin-bottom: 16px; }
+.card { border: 2px solid #f4f4f4; border-radius: 24px; overflow: hidden; margin-bottom: 4px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: #fafafa; border-bottom: 1px solid #f4f4f4; }
 .card-id { font-family: 'SF Mono','Fira Code',monospace; font-size: 14px; color: #191c1f; font-weight: 600; }
 .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; }
