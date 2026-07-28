@@ -10,23 +10,23 @@
 
     <!-- KPI Stat Cards -->
     <div class="kpi-grid">
-      <div class="kpi-card glass">
+      <div class="kpi-card">
         <span class="kpi-label">Today's Payments</span>
         <span class="kpi-value">{{ daily?.totalPayments || 0 }}</span>
       </div>
-      <div class="kpi-card glass success">
+      <div class="kpi-card success">
         <span class="kpi-label">Completed</span>
         <span class="kpi-value">{{ daily?.completedPayments || 0 }}</span>
       </div>
-      <div class="kpi-card glass danger">
+      <div class="kpi-card danger">
         <span class="kpi-label">Failed</span>
         <span class="kpi-value">{{ daily?.failedPayments || 0 }}</span>
       </div>
-      <div class="kpi-card glass">
+      <div class="kpi-card">
         <span class="kpi-label">Success Rate</span>
         <span class="kpi-value">{{ rate?.successRate || 'N/A' }}</span>
       </div>
-      <div class="kpi-card glass">
+      <div class="kpi-card">
         <span class="kpi-label">Avg Process Time</span>
         <span class="kpi-value">{{ avgTime?.avgProcessingSeconds || 'N/A' }}s</span>
       </div>
@@ -34,7 +34,7 @@
 
     <!-- Charts Row -->
     <div class="chart-row">
-      <div class="chart-card glass">
+      <div class="chart-card">
         <h3 class="chart-title">Today's Summary</h3>
         <v-chart v-if="daily && !loading" :option="barOption" autoresize class="chart" />
         <div v-else class="chart-placeholder">
@@ -42,21 +42,20 @@
         </div>
       </div>
 
-      <div class="chart-card glass">
+      <div class="chart-card">
         <h3 class="chart-title">Success vs Failure</h3>
         <v-chart v-if="rate && !loading" :option="pieOption" autoresize class="chart" />
         <div v-else class="chart-placeholder">
           <div class="skeleton"></div>
         </div>
       </div>
-    </div>
 
-    <!-- Daily Trend Chart -->
-    <div class="chart-card glass full-width">
-      <h3 class="chart-title">Processing Time Trend</h3>
-      <v-chart v-if="avgTime && !loading" :option="gaugeOption" autoresize class="chart chart-lg" />
-      <div v-else class="chart-placeholder">
-        <div class="skeleton skeleton-lg"></div>
+      <div class="chart-card">
+        <h3 class="chart-title">Processing Time</h3>
+        <v-chart v-if="avgTime && !loading" :option="gaugeOption" autoresize class="chart" />
+        <div v-else class="chart-placeholder">
+          <div class="skeleton"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -79,7 +78,7 @@ const avgTime = ref(null)
 const loading = ref(false)
 
 // Fintech color palette
-const C = { gold: '#F59E0B', dark: '#0F172A', purple: '#8B5CF6', green: '#059669', red: '#EF4444', blue: '#3B82F6', slate: '#64748B', surface: '#F8FAFC' }
+const C = { gold: '#F59E0B', dark: '#191c1f', purple: '#494fdf', green: '#059669', red: '#e23b4a', blue: '#3B82F6', slate: '#999', surface: '#fafafa' }
 
 const barOption = computed(() => ({
   tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: C.dark, borderColor: C.dark, textStyle: { color: '#fff' } },
@@ -139,37 +138,34 @@ onMounted(() => loadAll())
 </script>
 
 <style scoped>
-.reports { max-width: 1120px; margin: 0 auto; }
-.header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
-.page-title { font-family: Inter, system-ui, sans-serif; font-size: 28px; font-weight: 700; color: #0F172A; letter-spacing: -0.28px; }
+.reports { max-width: 1120px; margin: 0 auto; transform: translateY(-20px); margin-bottom: -20px; }
+.header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.page-title { font-family: Inter, system-ui, sans-serif; font-size: 28px; font-weight: 700; color: #191c1f; letter-spacing: -0.28px; }
 .refresh-btn {
-  padding: 12px 28px; border-radius: 9999px; border: 2px solid #E8ECF1;
-  background: #fff; font-family: Inter, sans-serif; font-size: 14px; font-weight: 600;
-  color: #0F172A; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.15s;
+  padding: 10px 26px; border-radius: 9999px; border: none;
+  background: #191c1f; font-family: Inter, sans-serif; font-size: 14px; font-weight: 600;
+  color: #fff; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: opacity 0.15s;
 }
-.refresh-btn:hover { border-color: #8B5CF6; color: #8B5CF6; }
-.spinner { width: 14px; height: 14px; border: 2px solid #E8ECF1; border-top-color: #8B5CF6; border-radius: 50%; animation: spin 0.6s linear infinite; }
+.refresh-btn:hover { opacity: 0.85; }
+.spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* KPI */
-.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; margin-bottom: 28px; }
-.kpi-card { padding: 20px 24px; border-radius: 20px; display: flex; flex-direction: column; gap: 6px; }
-.kpi-label { font-family: Inter, sans-serif; font-size: 12px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: 0.24px; }
-.kpi-value { font-family: Inter, sans-serif; font-size: 28px; font-weight: 800; color: #0F172A; letter-spacing: -0.28px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-bottom: 6px; }
+.kpi-card { padding: 14px 18px; border-radius: 24px; border: 2px solid #f4f4f4; background: #fff; display: flex; flex-direction: column; gap: 4px; }
+.kpi-label { font-family: Inter, sans-serif; font-size: 12px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.24px; }
+.kpi-value { font-family: Inter, sans-serif; font-size: 28px; font-weight: 800; color: #191c1f; letter-spacing: -0.28px; }
 .kpi-card.success .kpi-value { color: #059669; }
-.kpi-card.danger .kpi-value { color: #EF4444; }
+.kpi-card.danger .kpi-value { color: #e23b4a; }
 
-/* Glass */
-.glass { background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.3); }
-.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+/* Charts */
+.chart-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 0; }
+@media (max-width: 900px) { .chart-row { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 768px) { .chart-row { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
-.chart-card { border-radius: 24px; padding: 24px; }
-.chart-card.full-width { width: 100%; margin-bottom: 20px; }
-.chart-title { font-family: Inter, sans-serif; font-size: 16px; font-weight: 700; color: #0F172A; margin-bottom: 12px; }
-.chart { height: 320px; width: 100%; }
-.chart-lg { height: 380px; }
-.chart-placeholder { height: 320px; display: flex; align-items: center; justify-content: center; }
-.skeleton { width: 100%; height: 260px; background: linear-gradient(90deg, #F1F5F9 25%, #E2E8F0 50%, #F1F5F9 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 16px; }
-.skeleton-lg { height: 320px; }
+.chart-card { border-radius: 24px; border: 2px solid #f4f4f4; background: #fff; padding: 14px; }
+.chart-title { font-family: Inter, sans-serif; font-size: 14px; font-weight: 700; color: #191c1f; margin-bottom: 6px; }
+.chart { height: 280px; width: 100%; }
+.chart-placeholder { height: 280px; display: flex; align-items: center; justify-content: center; }
+.skeleton { width: 100%; height: 250px; background: linear-gradient(90deg, #fafafa 25%, #f4f4f4 50%, #fafafa 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 16px; }
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 </style>

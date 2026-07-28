@@ -1,49 +1,43 @@
 <template>
   <div class="form-wrapper">
     <h2 class="page-title">Create Payment</h2>
-    <form class="form" @submit.prevent="handleSubmit">
-      <!-- Source Account -->
-      <label class="field">
-        <span class="field-label">Source Account</span>
-        <input v-model="form.sourceAccount" class="input" placeholder="e.g. ACC-001" :class="{ error: errors.sourceAccount }" @input="clearError('sourceAccount')" />
-        <span v-if="errors.sourceAccount" class="field-error">{{ errors.sourceAccount }}</span>
-      </label>
-
-      <!-- Destination Account -->
-      <label class="field">
-        <span class="field-label">Destination Account</span>
-        <input v-model="form.destinationAccount" class="input" placeholder="e.g. ACC-002" :class="{ error: errors.destinationAccount }" @input="clearError('destinationAccount')" />
-        <span v-if="errors.destinationAccount" class="field-error">{{ errors.destinationAccount }}</span>
-      </label>
-
-      <!-- Amount -->
-      <label class="field">
-        <span class="field-label">Amount</span>
-        <input v-model.number="form.amount" class="input" type="number" step="0.01" min="0.01" max="1000000" placeholder="0.00" :class="{ error: errors.amount }" @input="clearError('amount')" />
-        <span v-if="errors.amount" class="field-error">{{ errors.amount }}</span>
-      </label>
-
-      <!-- Currency -->
-      <label class="field">
-        <span class="field-label">Currency</span>
-        <select v-model="form.currency" class="input select" :class="{ error: errors.currency }" @change="clearError('currency')">
-          <option v-for="c in SUPPORTED_CURRENCIES" :key="c" :value="c">{{ c }}</option>
-        </select>
-        <span v-if="errors.currency" class="field-error">{{ errors.currency }}</span>
-      </label>
-
-      <!-- Description -->
-      <label class="field">
-        <span class="field-label">Description <small>(optional)</small></span>
-        <input v-model="form.description" class="input" placeholder="e.g. Invoice payment" />
-      </label>
-
-      <div class="form-actions">
-        <button type="submit" class="btn" :disabled="loading">
-          {{ loading ? 'Creating...' : 'Create Payment' }}
-        </button>
-      </div>
-    </form>
+    <div class="form-card">
+      <form @submit.prevent="handleSubmit">
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">Source Account</span>
+            <input v-model="form.sourceAccount" class="input" placeholder="e.g. ACC-001" :class="{ error: errors.sourceAccount }" @input="clearError('sourceAccount')" />
+            <span v-if="errors.sourceAccount" class="field-error">{{ errors.sourceAccount }}</span>
+          </label>
+          <label class="field">
+            <span class="field-label">Destination Account</span>
+            <input v-model="form.destinationAccount" class="input" placeholder="e.g. ACC-002" :class="{ error: errors.destinationAccount }" @input="clearError('destinationAccount')" />
+            <span v-if="errors.destinationAccount" class="field-error">{{ errors.destinationAccount }}</span>
+          </label>
+          <label class="field">
+            <span class="field-label">Amount</span>
+            <input v-model.number="form.amount" class="input" type="number" step="0.01" min="0.01" max="1000000" placeholder="0.00" :class="{ error: errors.amount }" @input="clearError('amount')" />
+            <span v-if="errors.amount" class="field-error">{{ errors.amount }}</span>
+          </label>
+          <label class="field">
+            <span class="field-label">Currency</span>
+            <select v-model="form.currency" class="input select" :class="{ error: errors.currency }" @change="clearError('currency')">
+              <option v-for="c in SUPPORTED_CURRENCIES" :key="c" :value="c">{{ c }}</option>
+            </select>
+            <span v-if="errors.currency" class="field-error">{{ errors.currency }}</span>
+          </label>
+        </div>
+        <label class="field">
+          <span class="field-label">Description <small>(optional)</small></span>
+          <input v-model="form.description" class="input" placeholder="e.g. Invoice payment" />
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="btn" :disabled="loading">
+            {{ loading ? 'Creating...' : 'Create Payment' }}
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 </template>
 
@@ -90,14 +84,20 @@ function handleSubmit() {
 </script>
 
 <style scoped>
-.form-wrapper { max-width: 560px; margin: 0 auto; }
-.page-title { font-family: Inter, system-ui, sans-serif; font-size: 28px; font-weight: 700; color: #191c1f; margin-bottom: 28px; letter-spacing: -0.28px; }
-.form { display: flex; flex-direction: column; gap: 20px; }
-.field { display: flex; flex-direction: column; gap: 6px; }
+.form-wrapper { max-width: 680px; margin: -20px auto 0; }
+.page-title { font-family: Inter, system-ui, sans-serif; font-size: 28px; font-weight: 700; color: #191c1f; margin-bottom: 14px; letter-spacing: -0.28px; }
+.form-card {
+  border: 2px solid #f4f4f4;
+  border-radius: 24px;
+  padding: 28px 30px;
+  background: #fff;
+}
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 20px; margin-bottom: 16px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
 .field-label { font-family: Inter, system-ui, sans-serif; font-size: 14px; font-weight: 600; color: #191c1f; letter-spacing: 0.16px; }
 .field-label small { font-weight: 400; color: #999; }
 .input {
-  padding: 14px 18px;
+  padding: 10px 16px;
   border: 2px solid #f4f4f4;
   border-radius: 16px;
   font-family: Inter, system-ui, sans-serif;
@@ -110,9 +110,9 @@ function handleSubmit() {
 .input.error { border-color: #e23b4a; }
 .select { cursor: pointer; appearance: auto; }
 .field-error { font-size: 12px; color: #e23b4a; font-family: Inter, system-ui, sans-serif; }
-.form-actions { margin-top: 8px; }
+.form-actions { display: flex; justify-content: center; padding-top: 12px; }
 .btn {
-  padding: 18px 48px;
+  padding: 14px 48px;
   border-radius: 9999px;
   border: none;
   background: #191c1f;
@@ -125,4 +125,9 @@ function handleSubmit() {
 }
 .btn:hover { opacity: 0.85; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@media (max-width: 640px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .form-card { padding: 20px; }
+}
 </style>
