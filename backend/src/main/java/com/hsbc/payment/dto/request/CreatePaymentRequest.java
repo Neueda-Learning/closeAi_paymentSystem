@@ -2,6 +2,7 @@ package com.hsbc.payment.dto.request;
 
 import jakarta.validation.constraints.*;
 import lombok.Data;
+import lombok.ToString;
 
 import java.math.BigDecimal;
 
@@ -28,4 +29,13 @@ public class CreatePaymentRequest {
 
     @Size(max = 500, message = "Description must not exceed 500 characters")
     private String description;
+
+    @NotBlank(message = "Source account password is required")
+    @Size(max = 128, message = "Password must not exceed 128 characters")
+    @ToString.Exclude
+    private String sourceAccountPassword;
+
+    @NotBlank(message = "Recipient surname is required")
+    @Size(max = 50, message = "Recipient surname must not exceed 50 characters")
+    private String recipientLastName;
 }

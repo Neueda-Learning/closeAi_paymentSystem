@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -24,6 +25,7 @@ import static org.mockito.Mockito.when;
 class ValidationServiceTest {
 
     @Mock AccountMapper accountMapper;
+    @Mock PasswordService passwordService;
     @InjectMocks ValidationService validationService;
 
     @BeforeEach
@@ -33,6 +35,7 @@ class ValidationServiceTest {
         Account dst = buildAccount("ACC-00002", "5000000.00", "USD");
         lenient().when(accountMapper.selectById("ACC-00001")).thenReturn(src);
         lenient().when(accountMapper.selectById("ACC-00002")).thenReturn(dst);
+        lenient().when(passwordService.matches(anyString(), anyString())).thenReturn(true);
     }
 
     // ===== validateOnCreate =====
@@ -165,6 +168,8 @@ class ValidationServiceTest {
         req.setDestinationAccount(dst);
         req.setAmount(new BigDecimal(amount));
         req.setCurrency(currency);
+        req.setSourceAccountPassword("Payment@123");
+        req.setRecipientLastName("Account");
         return req;
     }
 
@@ -183,6 +188,8 @@ class ValidationServiceTest {
         a.setBalance(new BigDecimal(balance));
         a.setCurrency(currency);
         a.setAccountName("Test Account " + number);
+        a.setHolderLastName("Account");
+        a.setPasswordHash("test:hash");
         return a;
     }
 }

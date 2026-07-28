@@ -9,6 +9,12 @@ spring:
     init:
       mode: always
       schema-locations: classpath:db/schema-h2.sql
+  # ★ 禁用 Spring 默认的静态资源处理，防止 /api 被拦截
+  web:
+    resources:
+      static-locations: ""
+  mvc:
+    static-path-pattern: /assets/**
 
 mybatis-plus:
   configuration:

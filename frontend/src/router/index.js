@@ -3,6 +3,11 @@ import { createRouter, createWebHistory } from 'vue-router'
 const routes = [
   { path: '/', redirect: '/payments' },
   {
+    path: '/accounts',
+    name: 'Accounts',
+    component: () => import('../views/AccountsView.vue'),
+  },
+  {
     path: '/reports',
     name: 'Reports',
     component: () => import('../views/ReportsView.vue'),

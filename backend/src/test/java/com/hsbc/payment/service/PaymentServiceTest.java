@@ -5,6 +5,8 @@ import com.hsbc.payment.dto.request.CreatePaymentRequest;
 import com.hsbc.payment.dto.request.PageRequest;
 import com.hsbc.payment.dto.response.PaymentResponse;
 import com.hsbc.payment.dto.response.StatusHistoryResponse;
+import com.hsbc.payment.dto.response.ExchangeRateQuoteResponse;
+import com.hsbc.payment.entity.Account;
 import com.hsbc.payment.entity.Payment;
 import com.hsbc.payment.entity.StatusHistory;
 import com.hsbc.payment.enums.ErrorCode;
@@ -40,7 +42,8 @@ class PaymentServiceTest {
     @Mock IdempotencyService idempotencyService;
     @Mock com.hsbc.payment.service.risk.RiskAssessmentService riskAssessmentService;
     @Mock com.hsbc.payment.mapper.RiskAssessmentMapper riskAssessmentMapper;
-    @Mock com.hsbc.payment.mapper.AccountMapper accountMapper;
+    @Mock AccountService accountService;
+    @Mock ExchangeRateService exchangeRateService;
     @InjectMocks PaymentServiceImpl paymentService;
 
     private CreatePaymentRequest validRequest;
@@ -52,24 +55,27 @@ class PaymentServiceTest {
         validRequest.setDestinationAccount("ACC-002");
         validRequest.setAmount(new BigDecimal("100.00"));
         validRequest.setCurrency("USD");
-
         // Default risk assessment: APPROVE (lenient, not consumed by all tests)
         lenient().when(riskAssessmentService.assess(any()))
                 .thenReturn(new com.hsbc.payment.service.risk.RiskAssessmentService.RiskAssessmentResult(
                         0, com.hsbc.payment.enums.RiskLevel.LOW, com.hsbc.payment.enums.RiskDecision.APPROVE,
                         List.of(), null, null));
 
-        // Default accounts for processComplete balance transfer
-        com.hsbc.payment.entity.Account srcAccount = new com.hsbc.payment.entity.Account();
-        srcAccount.setAccountNumber("ACC-001"); srcAccount.setBalance(new java.math.BigDecimal("1000000"));
-        com.hsbc.payment.entity.Account dstAccount = new com.hsbc.payment.entity.Account();
-        dstAccount.setAccountNumber("ACC-002"); dstAccount.setBalance(new java.math.BigDecimal("5000000"));
-        lenient().when(accountMapper.selectById("ACC-001")).thenReturn(srcAccount);
-        lenient().when(accountMapper.selectById("ACC-002")).thenReturn(dstAccount);
-        lenient().when(accountMapper.selectById("ACC-010")).thenReturn(srcAccount);
-        lenient().when(accountMapper.selectById("ACC-020")).thenReturn(dstAccount);
-        lenient().when(accountMapper.selectById(anyString())).thenReturn(srcAccount);
-        lenient().when(accountMapper.updateById(any())).thenReturn(1);
+        validRequest.setSourceAccountPassword("Payment@123");
+        validRequest.setRecipientLastName("Recipient");
+
+        Account destination = new Account();
+        destination.setAccountNumber("ACC-002");
+        destination.setCurrency("USD");
+        lenient().when(accountService.findAccount(anyString())).thenReturn(destination);
+        lenient().when(exchangeRateService.quote(anyString(), anyString(), any()))
+                .thenAnswer(invocation -> ExchangeRateQuoteResponse.builder()
+                        .fromCurrency(invocation.getArgument(0))
+                        .toCurrency(invocation.getArgument(1))
+                        .sourceAmount(invocation.getArgument(2))
+                        .rate(BigDecimal.ONE)
+                        .settlementAmount(invocation.getArgument(2))
+                        .build());
     }
 
     // ===== Case 1: Happy path create =====
@@ -288,6 +294,9 @@ class PaymentServiceTest {
         p.setStatus(status);
         p.setAmount(new BigDecimal(amount));
         p.setCurrency(currency);
+        p.setExchangeRate(BigDecimal.ONE);
+        p.setSettlementAmount(new BigDecimal(amount));
+        p.setSettlementCurrency(currency);
         p.setSourceAccount("ACC-001");
         p.setDestinationAccount("ACC-002");
         p.setIdempotencyKey("key-" + id);

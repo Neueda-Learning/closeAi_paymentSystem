@@ -18,6 +18,9 @@ public class Payment {
     private String destinationAccount;
     private BigDecimal amount;
     private String currency;
+    private BigDecimal exchangeRate;
+    private BigDecimal settlementAmount;
+    private String settlementCurrency;
     private String description;
     private String status;
 

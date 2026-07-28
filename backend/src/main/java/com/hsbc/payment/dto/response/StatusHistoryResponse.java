@@ -14,4 +14,5 @@ public class StatusHistoryResponse {
     private LocalDateTime changedAt;
     private String reason;
     private String errorCode;
+    private String triggeredBy;
 }

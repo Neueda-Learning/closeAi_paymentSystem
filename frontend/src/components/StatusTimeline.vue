@@ -12,6 +12,7 @@
             <span v-if="item.fromStatus" class="from-status">from {{ item.fromStatus }}</span>
           </div>
           <div class="time">{{ formatTime(item.changedAt) }}</div>
+          <div v-if="item.triggeredBy" class="trigger">Triggered by {{ item.triggeredBy }}</div>
           <div v-if="item.reason" class="reason">{{ item.reason }}</div>
           <div v-if="item.errorCode" class="error-code">{{ item.errorCode }}</div>
         </div>
@@ -41,6 +42,7 @@ function formatTime(t) { return t ? new Date(t).toLocaleString() : '' }
 .to-status { font-size: 15px; font-weight: 700; color: #191c1f; letter-spacing: 0.16px; }
 .from-status { font-size: 12px; color: #999; }
 .time { font-size: 12px; color: #999; margin-top: 2px; }
+.trigger { display: inline-block; margin-top: 5px; padding: 3px 7px; border-radius: 7px; background: #f4f4f4; color: #666; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
 .reason { font-size: 13px; color: #666; margin-top: 4px; }
 .error-code { font-size: 13px; color: #e23b4a; font-weight: 600; margin-top: 2px; }
 .empty { color: #999; font-size: 14px; }
