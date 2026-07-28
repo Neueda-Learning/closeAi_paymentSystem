@@ -5,19 +5,16 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("status_history")
-public class StatusHistory {
+@TableName("exchange_rates")
+public class ExchangeRate {
     @TableId(type = IdType.AUTO)
     private Long id;
-
-    private String paymentId;
-    private String fromStatus;
-    private String toStatus;
-    private LocalDateTime changedAt;
-    private String reason;
-    private String errorCode;
-    private String triggeredBy;
+    private String fromCurrency;
+    private String toCurrency;
+    private BigDecimal rate;
+    private LocalDateTime updatedAt;
 }

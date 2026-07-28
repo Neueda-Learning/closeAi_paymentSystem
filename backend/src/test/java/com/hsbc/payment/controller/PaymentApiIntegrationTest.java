@@ -91,15 +91,15 @@ class PaymentApiIntegrationTest {
 
     // ===== Case 4: Unsupported currency → 400 (at validate stage) =====
 
-    @Test @DisplayName("Case 4: Unsupported currency JPY — creates OK, validate → FAILED")
+    @Test @DisplayName("Case 4: Unsupported currency JPY is rejected before creation")
     void test04_unsupportedCurrency() throws Exception {
-        String paymentId = createPayment("ACC-00001", "ACC-00002", "100.00", "JPY");
-
-        // Validate should fail with INVALID_CURRENCY → FAILED
-        mockMvc.perform(post("/api/payments/" + paymentId + "/validate"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("FAILED"))
-                .andExpect(jsonPath("$.data.errorCode").value("INVALID_CURRENCY"));
+        CreatePaymentRequest req = buildRequest("ACC-00001", "ACC-00002", "100.00", "JPY");
+        mockMvc.perform(post("/api/payments")
+                        .header("Idempotency-Key", uuid())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_CURRENCY"));
     }
 
     // ===== Case 5: Same idempotency key twice → 200 + existing payment =====
@@ -189,26 +189,15 @@ class PaymentApiIntegrationTest {
 
     // ===== Case 9: Invalid account format → FAILED on validate =====
 
-    @Test @DisplayName("Case 9: Bad account format validates to FAILED + INVALID_ACCOUNT")
+    @Test @DisplayName("Case 9: Bad account is rejected before payment creation")
     void test09_invalidAccountOnValidate() throws Exception {
-        // Bypass create-time validation by using a valid-looking account at creation
-        // But the account pattern check happens during validate
-        // Need to create payment with a "bad" account that passes creation but fails validate
-        // The ACCOUNT_PATTERN is ^ACC-\d{3,10}$ — ACC-99 would fail
         CreatePaymentRequest req = buildRequest("ACC-99", "ACC-002", "100.00", "USD");
-        String resp = mockMvc.perform(post("/api/payments")
+        mockMvc.perform(post("/api/payments")
                         .header("Idempotency-Key", uuid())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
-        String paymentId = objectMapper.readTree(resp).get("data").get("id").asText();
-
-        // Validate → FAILED
-        mockMvc.perform(post("/api/payments/" + paymentId + "/validate"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("FAILED"))
-                .andExpect(jsonPath("$.data.errorCode").value("INVALID_ACCOUNT"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_ACCOUNT"));
     }
 
     // ===== Case 11: Non-existent payment ID → 404 =====
@@ -256,15 +245,15 @@ class PaymentApiIntegrationTest {
 
     // ===== Case 3 + currency validation: invalid currency at create =====
 
-    @Test @DisplayName("Create with invalid currency in body still creates (validated on transition)")
+    @Test @DisplayName("Create with invalid currency is rejected")
     void createInvalidCurrencyStillCreates() throws Exception {
         CreatePaymentRequest req = buildRequest("ACC-00001", "ACC-00002", "100.00", "JPY");
         mockMvc.perform(post("/api/payments")
                         .header("Idempotency-Key", uuid())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.status").value("CREATED"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_CURRENCY"));
     }
 
     // ===== History endpoint returns slim array =====
@@ -286,12 +275,76 @@ class PaymentApiIntegrationTest {
     @Test @DisplayName("List payments filtered by status")
     void listFilteredByStatus() throws Exception {
         createPayment("ACC-00001", "ACC-00002", "100.00", "USD");
-        createPayment("ACC-00003", "ACC-00004", "200.00", "EUR");
+        createPayment("ACC-00003", "ACC-00004", "200.00", "USD");
 
         mockMvc.perform(get("/api/payments?status=CREATED"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray())
                 .andExpect(jsonPath("$.total").value(greaterThanOrEqualTo(2)));
+    }
+
+    @Test @DisplayName("Wrong source account password is rejected")
+    void wrongPasswordRejected() throws Exception {
+        CreatePaymentRequest req = buildRequest("ACC-00001", "ACC-00002", "100.00", "USD");
+        req.setSourceAccountPassword("WrongPassword");
+
+        mockMvc.perform(post("/api/payments")
+                        .header("Idempotency-Key", uuid())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_CREDENTIALS"));
+    }
+
+    @Test @DisplayName("Wrong recipient surname is rejected")
+    void wrongRecipientSurnameRejected() throws Exception {
+        CreatePaymentRequest req = buildRequest("ACC-00001", "ACC-00002", "100.00", "USD");
+        req.setRecipientLastName("Wrong");
+
+        mockMvc.perform(post("/api/payments")
+                        .header("Idempotency-Key", uuid())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("BENEFICIARY_MISMATCH"));
+    }
+
+    @Test @DisplayName("Malformed JSON returns validation error instead of internal error")
+    void malformedJsonReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/payments")
+                        .header("Idempotency-Key", uuid())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{sourceAccount:\"ACC-00001\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test @DisplayName("Cross-currency payment locks quote and records audit trigger")
+    void crossCurrencyQuoteAndAudit() throws Exception {
+        CreatePaymentRequest req = buildRequest("ACC-00001", "ACC-00004", "100.00", "USD");
+
+        String response = mockMvc.perform(post("/api/payments")
+                        .header("Idempotency-Key", uuid())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.exchangeRate").value(0.92))
+                .andExpect(jsonPath("$.data.settlementAmount").value(92.00))
+                .andExpect(jsonPath("$.data.settlementCurrency").value("EUR"))
+                .andReturn().getResponse().getContentAsString();
+        String paymentId = objectMapper.readTree(response).get("data").get("id").asText();
+
+        mockMvc.perform(get("/api/payments/" + paymentId + "/history"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].triggeredBy").value("PAYMENT_API"));
+
+        mockMvc.perform(get("/api/exchange-rates/quote")
+                        .param("from", "USD")
+                        .param("to", "EUR")
+                        .param("amount", "100.00"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rate").value(0.92))
+                .andExpect(jsonPath("$.data.settlementAmount").value(92.00));
     }
 
     // ===== helpers =====
@@ -334,7 +387,25 @@ class PaymentApiIntegrationTest {
         req.setDestinationAccount(dst);
         req.setAmount(new BigDecimal(amount));
         req.setCurrency(ccy);
+        req.setSourceAccountPassword("Payment@123");
+        req.setRecipientLastName(recipientLastName(dst));
         return req;
+    }
+
+    private String recipientLastName(String accountNumber) {
+        return switch (accountNumber) {
+            case "ACC-00001" -> "Operations";
+            case "ACC-00002", "ACC-002" -> "Desk";
+            case "ACC-00003" -> "Custody";
+            case "ACC-00004" -> "Markets";
+            case "ACC-00005" -> "Wealth";
+            case "ACC-00006" -> "Digital";
+            case "ACC-00007" -> "Retail";
+            case "ACC-00008" -> "Commercial";
+            case "ACC-00009" -> "Investment";
+            case "ACC-00010" -> "Balance";
+            default -> "Unknown";
+        };
     }
 
     private String uuid() { return UUID.randomUUID().toString(); }

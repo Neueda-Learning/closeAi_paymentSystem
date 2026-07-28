@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
@@ -65,6 +66,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(ApiResponse.fail(error));
     }
 
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnreadableMessage(HttpMessageNotReadableException ex) {
+        ErrorResponse error = ErrorResponse.builder()
+                .code(ErrorCode.VALIDATION_FAILED.name())
+                .message("Request body contains invalid JSON")
+                .build();
+        return ResponseEntity.badRequest().body(ApiResponse.fail(error));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception ex) {
         log.error("Unhandled exception", ex);
@@ -78,8 +88,10 @@ public class GlobalExceptionHandler {
     private HttpStatus mapToHttpStatus(ErrorCode errorCode) {
         return switch (errorCode) {
             case VALIDATION_FAILED, INSUFFICIENT_FUNDS, INVALID_ACCOUNT,
-                 INVALID_CURRENCY, INVALID_AMOUNT, INVALID_STATUS_TRANSITION -> HttpStatus.BAD_REQUEST;
-            case DUPLICATE_PAYMENT -> HttpStatus.CONFLICT;
+                 INVALID_CURRENCY, INVALID_AMOUNT, INVALID_CREDENTIALS,
+                 BENEFICIARY_MISMATCH, EXCHANGE_RATE_NOT_FOUND,
+                 INVALID_STATUS_TRANSITION -> HttpStatus.BAD_REQUEST;
+            case DUPLICATE_ACCOUNT, DUPLICATE_PAYMENT -> HttpStatus.CONFLICT;
             case PAYMENT_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case RISK_BLOCKED -> HttpStatus.FORBIDDEN;
             case RETRY_EXHAUSTED -> HttpStatus.CONFLICT;

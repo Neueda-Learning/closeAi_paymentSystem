@@ -25,9 +25,15 @@
           </div>
           <div class="grid">
             <div class="kv"><span class="k">Amount</span><span class="v">{{ payment.amount }} {{ payment.currency }}</span></div>
+            <div class="kv"><span class="k">Recipient Gets</span><span class="v">{{ payment.settlementAmount }} {{ payment.settlementCurrency }}</span></div>
+            <div class="kv"><span class="k">Locked FX Rate</span><span class="v">{{ payment.exchangeRate }}</span></div>
             <div class="kv"><span class="k">Status</span><span class="v">{{ payment.status }}</span></div>
             <div class="kv"><span class="k">Source</span><span class="v">{{ payment.sourceAccount }}</span></div>
             <div class="kv"><span class="k">Destination</span><span class="v">{{ payment.destinationAccount }}</span></div>
+            <div v-if="payment.riskScore !== null && payment.riskScore !== undefined" class="kv">
+              <span class="k">Risk Assessment</span>
+              <span class="v">{{ payment.riskScore }} · {{ payment.riskLevel }} · {{ payment.riskDecision }}</span>
+            </div>
             <div class="kv"><span class="k">Description</span><span class="v desc">{{ payment.description || '-' }}</span></div>
             <div class="kv"><span class="k">Created</span><span class="v">{{ formatTime(payment.createdAt) }}</span></div>
             <div class="kv"><span class="k">Retry Count</span><span class="v">{{ payment.retryCount || 0 }} / 3</span></div>
@@ -107,6 +113,14 @@
         <label class="dialog-label">Description</label>
         <input v-model="editForm.description" class="filter-input" style="width:100%" placeholder="Optional..." />
       </div>
+      <div class="dialog-field">
+        <label class="dialog-label">Recipient surname</label>
+        <input v-model="editForm.recipientLastName" class="filter-input" style="width:100%" autocomplete="off" placeholder="Confirm recipient surname" />
+      </div>
+      <div class="dialog-field">
+        <label class="dialog-label">Source account password</label>
+        <input v-model="editForm.sourceAccountPassword" class="filter-input" style="width:100%" type="password" autocomplete="current-password" placeholder="Confirm source account password" />
+      </div>
       <template #footer>
         <el-button @click="showEditDialog = false" :style="{ borderRadius:'9999px' }">Cancel</el-button>
         <el-button type="primary" @click="doEdit" :loading="actionLoading === 'edit'" :style="{ borderRadius:'9999px', background:'#191c1f', borderColor:'#191c1f' }">Save & Re-validate</el-button>
@@ -136,7 +150,15 @@ const showFailDialog = ref(false)
 const showEditDialog = ref(false)
 const failErrorCode = ref('PROCESSING_ERROR')
 const failReason = ref('')
-const editForm = ref({ sourceAccount: '', destinationAccount: '', amount: 0, currency: 'USD', description: '' })
+const editForm = ref({
+  sourceAccount: '',
+  destinationAccount: '',
+  amount: 0,
+  currency: 'USD',
+  description: '',
+  recipientLastName: '',
+  sourceAccountPassword: '',
+})
 const errorDescription = computed(() => ERROR_CODE_MAP[payment.value?.errorCode] || payment.value?.errorCode || '')
 
 onMounted(() => load())
@@ -159,6 +181,8 @@ async function handleAction(action) {
       amount: payment.value.amount,
       currency: payment.value.currency,
       description: payment.value.description || '',
+      recipientLastName: '',
+      sourceAccountPassword: '',
     }
     showEditDialog.value = true
     return

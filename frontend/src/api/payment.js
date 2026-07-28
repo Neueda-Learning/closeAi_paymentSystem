@@ -69,6 +69,10 @@ export function createBatch(payments) {
   return api.post('/payments/batch', { payments })
 }
 
+export function getExchangeRateQuote(from, to, amount) {
+  return api.get('/exchange-rates/quote', { params: { from, to, amount } })
+}
+
 /** GET /api/reports/daily-summary */
 export function getDailySummary() {
   return api.get('/reports/daily-summary')

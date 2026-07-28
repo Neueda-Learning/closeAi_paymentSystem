@@ -1,21 +1,17 @@
-package com.hsbc.payment.entity;
+package com.hsbc.payment.dto.response;
 
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("accounts")
-public class Account {
-    @TableId
+@Builder
+public class AccountResponse {
     private String accountNumber;
-
     private String accountName;
-    private String holderLastName;
-    private String passwordHash;
+    private String maskedAccountName;
     private BigDecimal balance;
     private String currency;
     private LocalDateTime createdAt;

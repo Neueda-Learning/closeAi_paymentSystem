@@ -16,6 +16,9 @@ public class PaymentResponse {
     private String destinationAccount;
     private BigDecimal amount;
     private String currency;
+    private BigDecimal exchangeRate;
+    private BigDecimal settlementAmount;
+    private String settlementCurrency;
     private String description;
     private String status;
     private String errorCode;

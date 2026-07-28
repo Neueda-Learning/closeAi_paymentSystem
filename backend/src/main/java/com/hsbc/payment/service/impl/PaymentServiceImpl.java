@@ -9,16 +9,17 @@ import com.hsbc.payment.dto.request.CreatePaymentRequest;
 import com.hsbc.payment.dto.request.PageRequest;
 import com.hsbc.payment.dto.response.PaymentResponse;
 import com.hsbc.payment.dto.response.StatusHistoryResponse;
+import com.hsbc.payment.dto.response.ExchangeRateQuoteResponse;
 import com.hsbc.payment.entity.Payment;
 import com.hsbc.payment.entity.StatusHistory;
 import com.hsbc.payment.enums.ErrorCode;
 import com.hsbc.payment.enums.PaymentStatus;
 import com.hsbc.payment.exception.BusinessException;
-import com.hsbc.payment.entity.Account;
-import com.hsbc.payment.mapper.AccountMapper;
 import com.hsbc.payment.mapper.PaymentMapper;
 import com.hsbc.payment.mapper.RiskAssessmentMapper;
 import com.hsbc.payment.mapper.StatusHistoryMapper;
+import com.hsbc.payment.service.AccountService;
+import com.hsbc.payment.service.ExchangeRateService;
 import com.hsbc.payment.service.IdempotencyService;
 import com.hsbc.payment.service.PaymentService;
 import com.hsbc.payment.service.StateMachineService;
@@ -47,9 +48,10 @@ public class PaymentServiceImpl implements PaymentService {
     private final StateMachineService stateMachineService;
     private final ValidationService validationService;
     private final IdempotencyService idempotencyService;
-    private final com.hsbc.payment.service.risk.RiskAssessmentService riskAssessmentService;
+    private final RiskAssessmentService riskAssessmentService;
     private final RiskAssessmentMapper riskAssessmentMapper;
-    private final AccountMapper accountMapper;
+    private final AccountService accountService;
+    private final ExchangeRateService exchangeRateService;
 
     @Override
     @Transactional
@@ -72,6 +74,16 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setDestinationAccount(request.getDestinationAccount());
         payment.setAmount(request.getAmount());
         payment.setCurrency(request.getCurrency().toUpperCase());
+        com.hsbc.payment.entity.Account destinationAccount =
+                accountService.findAccount(request.getDestinationAccount());
+        ExchangeRateQuoteResponse quote = exchangeRateService.quote(
+                request.getCurrency(),
+                destinationAccount.getCurrency(),
+                request.getAmount()
+        );
+        payment.setExchangeRate(quote.getRate());
+        payment.setSettlementAmount(quote.getSettlementAmount());
+        payment.setSettlementCurrency(quote.getToCurrency());
         payment.setDescription(request.getDescription());
         payment.setStatus(PaymentStatus.CREATED.name());
         paymentMapper.insert(payment);
@@ -87,6 +99,7 @@ public class PaymentServiceImpl implements PaymentService {
         history.setPaymentId(paymentId);
         history.setFromStatus(null);
         history.setToStatus(PaymentStatus.CREATED.name());
+        history.setTriggeredBy("PAYMENT_API");
         statusHistoryMapper.insert(history);
 
         return toPaymentResponse(payment);
@@ -167,11 +180,20 @@ public class PaymentServiceImpl implements PaymentService {
                     + "), cannot edit. This payment is permanently failed.");
         }
 
+        validationService.validateOnCreate(request);
+
         // Update editable fields
         payment.setSourceAccount(request.getSourceAccount());
         payment.setDestinationAccount(request.getDestinationAccount());
         payment.setAmount(request.getAmount());
         payment.setCurrency(request.getCurrency().toUpperCase());
+        com.hsbc.payment.entity.Account destinationAccount =
+                accountService.findAccount(request.getDestinationAccount());
+        ExchangeRateQuoteResponse quote = exchangeRateService.quote(
+                request.getCurrency(), destinationAccount.getCurrency(), request.getAmount());
+        payment.setExchangeRate(quote.getRate());
+        payment.setSettlementAmount(quote.getSettlementAmount());
+        payment.setSettlementCurrency(quote.getToCurrency());
         payment.setDescription(request.getDescription());
 
         // If FAILED, reset to CREATED and clear error
@@ -179,10 +201,10 @@ public class PaymentServiceImpl implements PaymentService {
             payment.setStatus(PaymentStatus.CREATED.name());
             payment.setErrorCode(null);
             recordStatusHistory(paymentId, PaymentStatus.FAILED.name(), PaymentStatus.CREATED.name(),
-                    "Payment edited, reset for re-validation", null);
+                    "Payment edited, reset for re-validation", null, "USER");
         } else {
             recordStatusHistory(paymentId, PaymentStatus.CREATED.name(), PaymentStatus.CREATED.name(),
-                    "Payment details updated", null);
+                    "Payment details updated", null, "USER");
         }
 
         paymentMapper.updateById(payment);
@@ -209,7 +231,7 @@ public class PaymentServiceImpl implements PaymentService {
         } catch (BusinessException ex) {
             updatePaymentStatus(payment, PaymentStatus.FAILED.name(), ex.getErrorCode().name());
             recordStatusHistory(paymentId, fromStatus.name(), PaymentStatus.FAILED.name(),
-                    "Validation failed: " + ex.getMessage(), ex.getErrorCode().name());
+                    "Validation failed: " + ex.getMessage(), ex.getErrorCode().name(), "VALIDATION_SERVICE");
             return getPayment(paymentId);
         }
 
@@ -219,15 +241,17 @@ public class PaymentServiceImpl implements PaymentService {
             updatePaymentStatus(payment, PaymentStatus.FAILED.name(), ErrorCode.RISK_BLOCKED.name());
             recordStatusHistory(paymentId, fromStatus.name(), PaymentStatus.FAILED.name(),
                     "Risk BLOCKED: score=" + riskResult.totalScore() + ", level=" + riskResult.riskLevel(),
-                    ErrorCode.RISK_BLOCKED.name());
+                    ErrorCode.RISK_BLOCKED.name(), "RISK_ASSESSMENT_SERVICE");
             return getPayment(paymentId);
         }
 
         updatePaymentStatus(payment, toStatus.name(), null);
         String riskNote = null;
-        if (riskResult.riskDecision() == com.hsbc.payment.enums.RiskDecision.REVIEW)
+        if (riskResult.riskDecision() == com.hsbc.payment.enums.RiskDecision.REVIEW) {
             riskNote = "Risk REVIEW: score=" + riskResult.totalScore() + ", level=" + riskResult.riskLevel();
-        recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(), riskNote, null);
+        }
+        recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(), riskNote, null,
+                "RISK_ASSESSMENT_SERVICE");
         return getPayment(paymentId);
     }
 
@@ -244,13 +268,14 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         updatePaymentStatus(payment, toStatus.name(), null);
-        recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(), null, null);
+        recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(), null, null, "PAYMENT_GATEWAY");
 
         // Simulated payment gateway: 20% chance of network failure
         if (ThreadLocalRandom.current().nextInt(100) < 20) {
             updatePaymentStatus(payment, PaymentStatus.FAILED.name(), ErrorCode.NETWORK_ERROR.name());
             recordStatusHistory(paymentId, toStatus.name(), PaymentStatus.FAILED.name(),
-                    "Gateway communication failed (simulated)", ErrorCode.NETWORK_ERROR.name());
+                    "Gateway communication failed (simulated)", ErrorCode.NETWORK_ERROR.name(),
+                    "PAYMENT_GATEWAY");
         }
 
         return getPayment(paymentId);
@@ -268,27 +293,14 @@ public class PaymentServiceImpl implements PaymentService {
                     "Cannot transition from " + fromStatus + " to " + toStatus);
         }
 
-        // Update account balances: deduct from source, credit to destination
-        Account srcAccount = accountMapper.selectById(payment.getSourceAccount());
-        Account dstAccount = accountMapper.selectById(payment.getDestinationAccount());
-        if (srcAccount == null || dstAccount == null) {
-            throw new BusinessException(ErrorCode.PROCESSING_ERROR,
-                    "Source or destination account not found during completion");
-        }
-
-        // Deduct from source
-        srcAccount.setBalance(srcAccount.getBalance().subtract(payment.getAmount()));
-        accountMapper.updateById(srcAccount);
-
-        // Credit to destination (same currency — cross-currency handled separately)
-        dstAccount.setBalance(dstAccount.getBalance().add(payment.getAmount()));
-        accountMapper.updateById(dstAccount);
+        // Update account balances: deduct from source, add to destination
+        BigDecimal amount = payment.getAmount();
+        accountService.updateBalance(payment.getSourceAccount(), amount.negate());
+        accountService.updateBalance(payment.getDestinationAccount(), payment.getSettlementAmount());
 
         updatePaymentStatus(payment, toStatus.name(), null);
         recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(),
-                "Completed: transferred " + payment.getAmount() + " " + payment.getCurrency()
-                + " from " + payment.getSourceAccount() + " to " + payment.getDestinationAccount(),
-                null);
+                "Settled at locked rate " + payment.getExchangeRate(), null, "SETTLEMENT_SERVICE");
 
         return getPayment(paymentId);
     }
@@ -306,7 +318,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         updatePaymentStatus(payment, toStatus.name(), errorCode);
-        recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(), reason, errorCode);
+        recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(), reason, errorCode, "USER");
 
         return getPayment(paymentId);
     }
@@ -360,13 +372,13 @@ public class PaymentServiceImpl implements PaymentService {
             }
             updatePaymentStatus(payment, PaymentStatus.FAILED.name(), failCode.name());
             recordStatusHistory(paymentId, fromStatus.name(), PaymentStatus.FAILED.name(),
-                    reason, failCode.name());
+                    reason, failCode.name(), "RETRY_PROCESS");
             return getPayment(paymentId);
         }
 
         updatePaymentStatus(payment, toStatus.name(), null);
         recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(),
-                "Retry attempt #" + payment.getRetryCount(), null);
+                "Retry attempt #" + payment.getRetryCount(), null, "RETRY_PROCESS");
 
         return getPayment(paymentId);
     }
@@ -411,7 +423,8 @@ public class PaymentServiceImpl implements PaymentService {
                     "Cannot cancel a COMPLETED payment");
         }
         updatePaymentStatus(payment, "CANCELLED", null);
-        recordStatusHistory(paymentId, current.name(), "CANCELLED", "Payment cancelled by user", null);
+        recordStatusHistory(paymentId, current.name(), "CANCELLED",
+                "Payment cancelled by user", null, "USER");
         return getPayment(paymentId);
     }
 
@@ -426,7 +439,8 @@ public class PaymentServiceImpl implements PaymentService {
         }
         // Mark original as REVERSED
         updatePaymentStatus(original, "REVERSED", null);
-        recordStatusHistory(paymentId, "COMPLETED", "REVERSED", "Payment reversed", null);
+        recordStatusHistory(paymentId, "COMPLETED", "REVERSED",
+                "Payment reversed", null, "USER");
 
         // Create offsetting payment
         String revKey = "REV-" + paymentId;
@@ -437,10 +451,14 @@ public class PaymentServiceImpl implements PaymentService {
         reversal.setDestinationAccount(original.getSourceAccount());
         reversal.setAmount(original.getAmount());
         reversal.setCurrency(original.getCurrency());
+        reversal.setExchangeRate(original.getExchangeRate());
+        reversal.setSettlementAmount(original.getSettlementAmount());
+        reversal.setSettlementCurrency(original.getSettlementCurrency());
         reversal.setDescription("Reversal of " + paymentId);
         reversal.setStatus("CREATED");
         paymentMapper.insert(reversal);
-        recordStatusHistory(reversal.getId(), null, "CREATED", "Auto-created reversal", null);
+        recordStatusHistory(reversal.getId(), null, "CREATED",
+                "Auto-created reversal", null, "SYSTEM");
 
         return getPayment(paymentId);
     }
@@ -550,13 +568,14 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private void recordStatusHistory(String paymentId, String fromStatus, String toStatus,
-                                      String reason, String errorCode) {
+                                      String reason, String errorCode, String triggeredBy) {
         StatusHistory history = new StatusHistory();
         history.setPaymentId(paymentId);
         history.setFromStatus(fromStatus);
         history.setToStatus(toStatus);
         history.setReason(reason);
         history.setErrorCode(errorCode);
+        history.setTriggeredBy(triggeredBy);
         statusHistoryMapper.insert(history);
     }
 
@@ -570,6 +589,7 @@ public class PaymentServiceImpl implements PaymentService {
                         .changedAt(h.getChangedAt())
                         .reason(h.getReason())
                         .errorCode(h.getErrorCode())
+                        .triggeredBy(h.getTriggeredBy())
                         .build())
                 .collect(Collectors.toList());
     }
@@ -584,6 +604,9 @@ public class PaymentServiceImpl implements PaymentService {
                 .destinationAccount(payment.getDestinationAccount())
                 .amount(payment.getAmount())
                 .currency(payment.getCurrency())
+                .exchangeRate(payment.getExchangeRate())
+                .settlementAmount(payment.getSettlementAmount())
+                .settlementCurrency(payment.getSettlementCurrency())
                 .description(payment.getDescription())
                 .status(payment.getStatus())
                 .errorCode(payment.getErrorCode())

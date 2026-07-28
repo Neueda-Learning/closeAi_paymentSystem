@@ -21,6 +21,7 @@ public class ValidationService {
     private static final Pattern ACCOUNT_PATTERN = Pattern.compile("^ACC-\\d{3,10}$");
 
     private final AccountMapper accountMapper;
+    private final PasswordService passwordService;
 
     /**
      * 创建时的基础格式校验（快速失败）：仅检查源/目标账户不能相同。
@@ -31,6 +32,27 @@ public class ValidationService {
                 ErrorCode.INVALID_ACCOUNT,
                 "Source and destination accounts must be different"
             );
+        }
+
+        Account sourceAccount = accountMapper.selectById(request.getSourceAccount());
+        Account destinationAccount = accountMapper.selectById(request.getDestinationAccount());
+        if (sourceAccount == null || destinationAccount == null) {
+            throw new BusinessException(ErrorCode.INVALID_ACCOUNT,
+                    "Source or destination account does not exist");
+        }
+        if (!passwordService.matches(request.getSourceAccountPassword(), sourceAccount.getPasswordHash())) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS,
+                    "Source account password is incorrect");
+        }
+        if (destinationAccount.getHolderLastName() == null
+                || !destinationAccount.getHolderLastName().trim()
+                        .equalsIgnoreCase(request.getRecipientLastName().trim())) {
+            throw new BusinessException(ErrorCode.BENEFICIARY_MISMATCH,
+                    "Recipient surname does not match the destination account");
+        }
+        if (!sourceAccount.getCurrency().equalsIgnoreCase(request.getCurrency())) {
+            throw new BusinessException(ErrorCode.INVALID_CURRENCY,
+                    "Payment currency must match the source account currency");
         }
     }
 
