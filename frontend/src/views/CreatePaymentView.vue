@@ -1,7 +1,6 @@
 <template>
   <div>
     <PaymentForm :loading="loading || accountsLoading" :accounts="accounts" @submit="openConfirmation" />
-
     <el-dialog v-model="showConfirmation" title="Confirm recipient" width="480px" center>
       <div v-if="pendingPayment" class="confirm-card">
         <div class="recipient-avatar">{{ recipientInitial }}</div>
@@ -27,9 +26,10 @@
         <el-button type="primary" :loading="loading" :disabled="!canConfirm" @click="handleSubmit">Confirm payment</el-button>
       </template>
     </el-dialog>
-  <div class="create-page">
-    <PaymentForm :loading="loading" @submit="handleSubmit" />
+  </div>
 
+  <div class="create-page">
+    <!-- promo + success sections -->
     <section class="promo-banner" aria-label="HSBC payment protection banner">
       <div class="promo-badge" aria-hidden="true">
         <span class="promo-badge-mark" role="img" aria-label="HSBC logo">
