@@ -30,6 +30,14 @@
         <span class="kpi-label">Avg Process Time</span>
         <span class="kpi-value">{{ avgTime?.avgProcessingSeconds || 'N/A' }}s</span>
       </div>
+      <div class="kpi-card danger">
+        <span class="kpi-label">Block Rate</span>
+        <span class="kpi-value">{{ risk?.blockRate || 'N/A' }}</span>
+      </div>
+      <div class="kpi-card warning">
+        <span class="kpi-label">Blocked Today</span>
+        <span class="kpi-value">{{ risk?.todayBlocked || 0 }}</span>
+      </div>
     </div>
 
     <!-- Charts Row -->
@@ -69,12 +77,14 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { BarChart, PieChart, GaugeChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, LegendComponent, TitleComponent } from 'echarts/components'
 import { getDailySummary, getSuccessRate, getAvgProcessingTime } from '../api/payment'
+import { getRiskStats } from '../api/risk'
 
 use([CanvasRenderer, BarChart, PieChart, GaugeChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent])
 
 const daily = ref(null)
 const rate = ref(null)
 const avgTime = ref(null)
+const risk = ref(null)
 const loading = ref(false)
 
 // Fintech color palette
@@ -127,10 +137,11 @@ const gaugeOption = computed(() => ({
 async function loadAll() {
   loading.value = true
   try {
-    const [d, r, a] = await Promise.all([getDailySummary(), getSuccessRate(), getAvgProcessingTime()])
+    const [d, r, a, k] = await Promise.all([getDailySummary(), getSuccessRate(), getAvgProcessingTime(), getRiskStats()])
     if (d.success) daily.value = d.data
     if (r.success) rate.value = r.data
     if (a.success) avgTime.value = a.data
+    if (k.data) risk.value = k.data
   } finally { loading.value = false }
 }
 

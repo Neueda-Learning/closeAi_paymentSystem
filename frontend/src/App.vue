@@ -7,6 +7,7 @@
         <router-link to="/payments/create" class="nav-link" active-class="active">Create</router-link>
         <router-link to="/accounts" class="nav-link" active-class="active">Accounts</router-link>
         <router-link to="/reports" class="nav-link" active-class="active">Reports</router-link>
+        <router-link to="/risk-dashboard" class="nav-link" active-class="active">Risk</router-link>
       </nav>
     </header>
     <main class="main">
