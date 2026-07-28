@@ -84,12 +84,18 @@ function handleSubmit() {
 </script>
 
 <style scoped>
-.form-wrapper { max-width: 680px; margin: -20px auto 0; }
+/* Let the create form stretch with the viewport instead of staying narrow on large screens. */
+.form-wrapper {
+  width: 100%;
+  max-width: none;
+  margin: -20px 0 0;
+}
 .page-title { font-family: Inter, system-ui, sans-serif; font-size: 28px; font-weight: 700; color: #191c1f; margin-bottom: 14px; letter-spacing: -0.28px; }
 .form-card {
+  width: 100%;
   border: 2px solid #f4f4f4;
   border-radius: 24px;
-  padding: 28px 30px;
+  padding: clamp(20px, 2.5vw, 28px) clamp(20px, 2.5vw, 30px);
   background: #fff;
 }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 20px; margin-bottom: 16px; }

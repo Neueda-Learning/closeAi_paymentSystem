@@ -27,5 +27,10 @@ body { font-family: Inter, system-ui, -apple-system, sans-serif; background: #ff
 .nav { display: flex; gap: 24px; }
 .nav-link { font-size: 15px; font-weight: 600; color: #999; text-decoration: none; padding-bottom: 2px; letter-spacing: 0.16px; transition: color 0.15s; }
 .nav-link:hover, .nav-link.active { color: #191c1f; }
-.main { max-width: 1120px; margin: 0 auto; padding: 40px 24px; }
+.main {
+  width: 100%;
+  max-width: none;
+  margin: 0 auto;
+  padding: clamp(20px, 3vw, 40px) clamp(16px, 2vw, 24px);
+}
 </style>
