@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="list-page">
     <h2 class="page-title">Payment List</h2>
 
     <!-- Filters -->
@@ -59,7 +59,8 @@ function onPageChange(p) { filters.page = p; doSearch() }
 </script>
 
 <style scoped>
-.page-title { font-family: Inter, system-ui, sans-serif; font-size: 28px; font-weight: 700; color: #191c1f; margin-bottom: 24px; letter-spacing: -0.28px; }
+.list-page { transform: translateY(-20px); margin-bottom: -20px; }
+.page-title { font-family: Inter, system-ui, sans-serif; font-size: 28px; font-weight: 700; color: #191c1f; margin-bottom: 16px; letter-spacing: -0.28px; }
 .filters { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
 .filter-select, .filter-input {
   padding: 12px 18px;

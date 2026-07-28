@@ -10,8 +10,9 @@
           <StatusBadge :status="payment.status" />
         </div>
 
+        <h3 class="timeline-title">Status History</h3>
         <div class="timeline-scroll">
-          <StatusTimeline :history="[...(payment.statusHistory || [])].reverse()" />
+          <StatusTimeline :history="[...(payment.statusHistory || [])].reverse()" :hide-title="true" />
         </div>
       </aside>
 
@@ -218,15 +219,14 @@ function formatTime(t) { return t ? new Date(t).toLocaleString() : '' }
 </script>
 
 <style scoped>
-.page-title { font-family: Inter, system-ui, sans-serif; font-size: 28px; font-weight: 700; color: #191c1f; margin-bottom: 24px; letter-spacing: -0.28px; }
+.detail { overflow: hidden; transform: translateY(-20px); margin-bottom: -20px; }
+.page-title { font-family: Inter, system-ui, sans-serif; font-size: 28px; font-weight: 700; color: #191c1f; margin-bottom: 16px; letter-spacing: -0.28px; }
 
 /* Two-column layout */
-.detail-layout { display: flex; gap: 28px; align-items: flex-start; }
-.sidebar { width: 280px; flex-shrink: 0; position: sticky; top: 24px; }
-.timeline-scroll { max-height: calc(100vh - 280px); overflow-y: auto; }
-.main-content { flex: 1; min-width: 0; }
-
+.detail-layout { display: flex; gap: 28px; align-items: flex-start; height: calc(100vh - 175px); }
+.sidebar { width: 280px; flex-shrink: 0; align-self: stretch; display: flex; flex-direction: column; overflow: hidden; }
 .status-section {
+  flex-shrink: 0;
   display: flex; flex-direction: column; align-items: center; gap: 10px;
   padding: 18px 20px;
   background: #fafafa;
@@ -234,16 +234,25 @@ function formatTime(t) { return t ? new Date(t).toLocaleString() : '' }
   border-radius: 16px;
   margin-bottom: 20px;
 }
+.timeline-scroll { flex: 1; overflow-y: auto; min-height: 0; }
+.main-content { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
 .status-label {
   font-family: Inter, system-ui, sans-serif;
   font-size: 11px; font-weight: 600; color: #999;
   text-transform: uppercase; letter-spacing: 0.24px;
 }
+.timeline-title {
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 18px; font-weight: 700; color: #191c1f;
+  letter-spacing: 0.16px;
+  margin: 0 0 10px;
+  flex-shrink: 0;
+}
 
 @media (max-width: 768px) {
-  .detail-layout { flex-direction: column; }
-  .sidebar { width: 100%; position: static; }
-  .timeline-scroll { max-height: none; overflow-y: visible; }
+  .detail-layout { flex-direction: column; height: auto; }
+  .sidebar { width: 100%; align-self: auto; overflow: visible; }
+  .timeline-scroll { flex: none; max-height: none; overflow-y: visible; }
   .grid { grid-template-columns: 1fr 1fr; }
 }
 
