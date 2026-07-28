@@ -1,0 +1,25 @@
+# Dev profile: H2 in-memory database for local testing
+spring:
+  datasource:
+    url: jdbc:h2:mem:payment_system;DB_CLOSE_DELAY=-1;MODE=MySQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema-h2.sql
+  # ★ 禁用 Spring 默认的静态资源处理，防止 /api 被拦截
+  web:
+    resources:
+      static-locations: ""
+  mvc:
+    static-path-pattern: /assets/**
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: assign_uuid
