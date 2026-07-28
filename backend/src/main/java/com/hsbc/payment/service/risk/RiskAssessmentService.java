@@ -10,6 +10,7 @@ import com.hsbc.payment.entity.RiskAssessment;
 import com.hsbc.payment.mapper.AccountStatsMapper;
 import com.hsbc.payment.mapper.PaymentMapper;
 import com.hsbc.payment.mapper.RiskAssessmentMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,12 @@ public class RiskAssessmentService {
     private final AccountStatsMapper accountStatsMapper;
     private final PaymentMapper paymentMapper;
     private final RiskAssessmentMapper riskAssessmentMapper;
+
+    // Layer 3 (optional — @AiService auto-proxy; null if LangChain4j not configured)
+    @Autowired(required = false)
+    private PaymentRiskAgent paymentRiskAgent;
+    @Autowired(required = false)
+    private AiAgentResultParser aiResultParser;
 
     public RiskAssessmentResult assess(Payment payment) {
         RiskContext context = buildContext(payment);
@@ -61,12 +68,39 @@ public class RiskAssessmentService {
         if (decision == RiskDecision.BLOCK)
             return persist(payment, totalScore, decision, triggeredRules, statResult, null);
 
-        // Layer 3: AI Agent (deferred, requires LLM API key)
-        log.info("Layer 3: {} (decision={}, layer3.enabled={})",
-                riskConfig.getLayer3().isEnabled() ? "would evaluate" : "skipped (disabled)",
-                decision, riskConfig.getLayer3().isEnabled());
+        // Layer 3: AI Agent (LangChain4j @AiService)
+        AiAgentResultParser.AiAgentResult aiResult = null;
+        if (decision == RiskDecision.REVIEW && riskConfig.getLayer3().isEnabled() && paymentRiskAgent != null) {
+            try {
+                String llmResponse = paymentRiskAgent.assessPayment(
+                        payment.getId(),
+                        payment.getAmount().toPlainString(),
+                        payment.getCurrency(),
+                        payment.getSourceAccount(),
+                        payment.getDestinationAccount(),
+                        String.valueOf(context.getTransactionHour()),
+                        payment.getDescription() != null ? payment.getDescription() : "N/A",
+                        String.valueOf(totalScore),
+                        triggeredRules.stream().map(t -> t.ruleName() + "(" + t.score() + ")")
+                                .collect(Collectors.joining(", ")),
+                        String.valueOf(statResult.additionalScore()),
+                        statResult.flags().stream().map(f -> f.type() + ": " + f.description())
+                                .collect(Collectors.joining("; "))
+                );
+                aiResult = aiResultParser.parse(llmResponse);
+                if (aiResult.decision() == RiskDecision.BLOCK) {
+                    decision = RiskDecision.BLOCK;
+                    totalScore = Math.max(totalScore, 80);
+                }
+                log.info("Layer 3: decision={}, confidence={}", aiResult.decision(), aiResult.confidence());
+            } catch (Exception e) {
+                log.error("Layer 3 AI Agent failed, maintaining REVIEW: {}", e.getMessage());
+            }
+        } else if (decision == RiskDecision.REVIEW && riskConfig.getLayer3().isEnabled()) {
+            log.info("Layer 3: skipped (paymentRiskAgent not injected — LangChain4j may not be on classpath)");
+        }
 
-        return persist(payment, totalScore, decision, triggeredRules, statResult, null);
+        return persist(payment, totalScore, decision, triggeredRules, statResult, aiResult);
     }
 
     private RiskDecision decide(int score) {

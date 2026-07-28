@@ -22,6 +22,22 @@ mybatis-plus:
       logic-delete-value: 1
       logic-not-delete-value: 0
 
+# ===== LangChain4j AI Agent (Layer 3 — requires API key) =====
+# 切换底座模型只需改 base-url + model-name, 代码零改动
+langchain4j:
+  open-ai:
+    chat-model:
+      # 默认 OpenAI; 阿里百炼: https://dashscope.aliyuncs.com/compatible-mode/v1
+      # Ollama 本地: http://localhost:11434/v1
+      base-url: ${LLM_BASE_URL:https://api.openai.com/v1}
+      api-key: ${LLM_API_KEY:sk-demo}
+      model-name: ${LLM_MODEL_NAME:gpt-4o-mini}
+      temperature: 0.1
+      max-tokens: 1024
+      log-requests: true
+      log-responses: true
+      timeout: 60s
+
 # ===== Risk Assessment (three-layer progressive) =====
 risk:
   layer1:
