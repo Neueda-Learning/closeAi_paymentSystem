@@ -67,21 +67,18 @@ public class AccountService {
 
     @Transactional
     public void updateBalance(String accountNumber, java.math.BigDecimal amountDelta) {
-        Account account = accountMapper.selectById(accountNumber);
-        if (account == null) {
-            throw new BusinessException(ErrorCode.INVALID_ACCOUNT,
-                    "Account not found: " + accountNumber);
+        // Atomic SQL — eliminates SELECT-then-SET race condition.
+        // For deductions (delta < 0), DB atomically checks balance >= |delta|.
+        // For credits (delta > 0), always succeeds.
+        if (amountDelta.compareTo(java.math.BigDecimal.ZERO) < 0) {
+            int rows = accountMapper.deductBalance(accountNumber, amountDelta.abs());
+            if (rows == 0) {
+                throw new BusinessException(ErrorCode.INSUFFICIENT_FUNDS,
+                        "Insufficient balance in account: " + accountNumber);
+            }
+        } else {
+            accountMapper.creditBalance(accountNumber, amountDelta);
         }
-
-        java.math.BigDecimal newBalance = account.getBalance().add(amountDelta);
-        if (newBalance.compareTo(java.math.BigDecimal.ZERO) < 0) {
-            throw new BusinessException(ErrorCode.INSUFFICIENT_FUNDS,
-                    "Insufficient balance in account: " + accountNumber);
-        }
-
-        account.setBalance(newBalance);
-        account.setUpdatedAt(LocalDateTime.now());
-        accountMapper.updateById(account);
     }
 
     private BusinessException duplicateAccount(String accountNumber) {

@@ -10,9 +10,9 @@ import java.util.Set;
 public class StateMachineService {
 
     private static final Map<PaymentStatus, Set<PaymentStatus>> VALID_TRANSITIONS = Map.of(
-        PaymentStatus.CREATED,   Set.of(PaymentStatus.VALIDATED, PaymentStatus.FAILED),
-        PaymentStatus.VALIDATED, Set.of(PaymentStatus.SENT, PaymentStatus.FAILED),
-        PaymentStatus.SENT,      Set.of(PaymentStatus.COMPLETED, PaymentStatus.FAILED),
+        PaymentStatus.CREATED,   Set.of(PaymentStatus.VALIDATED, PaymentStatus.FAILED, PaymentStatus.CANCELLED),
+        PaymentStatus.VALIDATED, Set.of(PaymentStatus.SENT, PaymentStatus.FAILED, PaymentStatus.CANCELLED),
+        PaymentStatus.SENT,      Set.of(PaymentStatus.COMPLETED, PaymentStatus.FAILED, PaymentStatus.CANCELLED),
         PaymentStatus.COMPLETED, Set.of(PaymentStatus.REVERSED),
         PaymentStatus.FAILED,    Set.of(PaymentStatus.VALIDATED),
         PaymentStatus.CANCELLED, Set.of(),

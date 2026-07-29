@@ -26,6 +26,7 @@ import com.hsbc.payment.service.StateMachineService;
 import com.hsbc.payment.service.ValidationService;
 import com.hsbc.payment.service.risk.RiskAssessmentService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -36,6 +37,7 @@ import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentServiceImpl implements PaymentService {
@@ -235,9 +237,15 @@ public class PaymentServiceImpl implements PaymentService {
             return getPayment(paymentId);
         }
 
-        // ===== Risk Assessment (three-layer progressive) =====
-        RiskAssessmentService.RiskAssessmentResult riskResult = riskAssessmentService.assess(payment);
-        if (riskResult.riskDecision() == com.hsbc.payment.enums.RiskDecision.BLOCK) {
+        // ===== Risk Assessment (three-layer progressive, with fault isolation) =====
+        RiskAssessmentService.RiskAssessmentResult riskResult;
+        try {
+            riskResult = riskAssessmentService.assess(payment);
+        } catch (Exception e) {
+            log.error("Risk assessment failed — allowing payment to proceed: {}", e.getMessage());
+            riskResult = null;  // fault isolation: risk failure must not block payment
+        }
+        if (riskResult != null && riskResult.riskDecision() == com.hsbc.payment.enums.RiskDecision.BLOCK) {
             updatePaymentStatus(payment, PaymentStatus.FAILED.name(), ErrorCode.RISK_BLOCKED.name());
             recordStatusHistory(paymentId, fromStatus.name(), PaymentStatus.FAILED.name(),
                     "Risk BLOCKED: score=" + riskResult.totalScore() + ", level=" + riskResult.riskLevel(),
@@ -247,7 +255,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         updatePaymentStatus(payment, toStatus.name(), null);
         String riskNote = null;
-        if (riskResult.riskDecision() == com.hsbc.payment.enums.RiskDecision.REVIEW) {
+        if (riskResult != null && riskResult.riskDecision() == com.hsbc.payment.enums.RiskDecision.REVIEW) {
             riskNote = "Risk REVIEW: score=" + riskResult.totalScore() + ", level=" + riskResult.riskLevel();
         }
         recordStatusHistory(paymentId, fromStatus.name(), toStatus.name(), riskNote, null,
@@ -418,12 +426,15 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentResponse cancelPayment(String paymentId) {
         Payment payment = findPaymentById(paymentId);
         PaymentStatus current = PaymentStatus.fromString(payment.getStatus());
-        if (current == PaymentStatus.COMPLETED) {
+        PaymentStatus target = PaymentStatus.CANCELLED;
+
+        if (!stateMachineService.canTransition(current, target)) {
             throw new BusinessException(ErrorCode.INVALID_STATUS_TRANSITION,
-                    "Cannot cancel a COMPLETED payment");
+                    "Cannot cancel payment in " + current + " status");
         }
-        updatePaymentStatus(payment, "CANCELLED", null);
-        recordStatusHistory(paymentId, current.name(), "CANCELLED",
+
+        updatePaymentStatus(payment, target.name(), null);
+        recordStatusHistory(paymentId, current.name(), target.name(),
                 "Payment cancelled by user", null, "USER");
         return getPayment(paymentId);
     }
