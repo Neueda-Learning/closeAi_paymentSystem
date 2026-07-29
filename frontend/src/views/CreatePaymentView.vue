@@ -35,7 +35,7 @@
         <span class="promo-badge-mark" role="img" aria-label="HSBC logo">
           <img src="/logo.png" alt="HSBC logo" />
         </span>
-        <span class="promo-badge-text">HSBC</span>
+        <span class="promo-badge-text">LOGO</span>
       </div>
 
       <div class="marquee" role="status" aria-live="polite">
